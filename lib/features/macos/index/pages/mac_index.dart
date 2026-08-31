@@ -271,7 +271,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
         );
       case "image":
         // ✅ 同步获取路径，不再FutureBuilder
-        final imgPath = getImageCachePath(cacheDir, entry.hash ?? "");
+        final imgPath = entry.filePath ?? "";
         debugPrint(imgPath);
         return InteractiveViewer(
           minScale: 0.5,
@@ -415,7 +415,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
 
   Widget _buildItemLeading(ClipboardEntry entry, Directory cacheDir) {
     if (entry.type == "image") {
-      final imgPath = getImageCachePath(cacheDir, entry.hash ?? "");
+      final imgPath = entry.filePath ?? "";
 
       return ClipRRect(
         borderRadius: BorderRadius.circular(5),

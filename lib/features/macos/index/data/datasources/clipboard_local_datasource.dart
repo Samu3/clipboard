@@ -24,6 +24,7 @@ class ClipboardLocalDatasource {
       'updated_at': entry.updatedAt,
       'deleted': entry.deleted,
       'deleted_at': entry.deletedAt,
+      'filePath': entry.filePath
     };
   }
 
@@ -43,6 +44,7 @@ class ClipboardLocalDatasource {
       updatedAt: map['updated_at'] as int,
       deleted: map['deleted'] as int,
       deletedAt: map['deleted_at'] as int?,
+      filePath: map['filePath'] as String?,
     );
   }
 

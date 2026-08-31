@@ -88,6 +88,7 @@ class NativeClipboardChannel {
           id: id,
           type: "image",
           title: title,
+          filePath: payload["filePath"],
           preview: preview,
           hash: hash,
           sizeBytes: sizeBytes,

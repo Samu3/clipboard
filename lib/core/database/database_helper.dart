@@ -57,7 +57,8 @@ class DatabaseHelper {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       deleted INTEGER DEFAULT 0,
-      deleted_at INTEGER
+      deleted_at INTEGER,
+      filePath TEXT
     )
     ''');
 
@@ -157,48 +158,7 @@ class DatabaseHelper {
   }
 
   /// 数据库升级
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // 添加 account_id 和 uid 字段到 water_records
-      await db.execute('''
-        ALTER TABLE water_records ADD COLUMN account_id TEXT
-      ''');
-      await db.execute('''
-        ALTER TABLE water_records ADD COLUMN uid TEXT
-      ''');
-
-      // 创建新索引
-      await db.execute('''
-        CREATE INDEX idx_water_records_account_uid
-        ON water_records(account_id, uid)
-      ''');
-
-      // 检查 water_settings 表是否存在
-      final tables = await db.rawQuery(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='water_settings'");
-
-      if (tables.isEmpty) {
-        // 创建 water_settings 表
-        await db.execute('''
-          CREATE TABLE water_settings (
-            id INTEGER PRIMARY KEY,
-            account_id TEXT,
-            uid TEXT,
-            water_cpu INTEGER NOT NULL,
-            water_target INTEGER NOT NULL
-          )
-        ''');
-      } else {
-        // 表已存在，添加字段
-        await db.execute('''
-          ALTER TABLE water_settings ADD COLUMN account_id TEXT
-        ''');
-        await db.execute('''
-          ALTER TABLE water_settings ADD COLUMN uid TEXT
-        ''');
-      }
-    }
-  }
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {}
 
   /// 关闭数据库
   Future<void> close() async {
