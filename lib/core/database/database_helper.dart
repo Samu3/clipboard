@@ -6,9 +6,14 @@ class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
 
-  // 表名常量
-  static const String waterReordsTableName = 'water_records';
-  static const String waterSettingsTableName = 'water_settings';
+  static const String tableEntries = 'entries';
+  static const String tableBlobs = 'blobs';
+  static const String tableTags = 'tags';
+  static const String tableEntryTags = 'entry_tags';
+  static const String tableDevices = 'devices';
+  static const String tableSyncState = 'sync_state';
+  static const String tableSettings = 'settings';
+  static const String tableSubscription = 'subscription';
 
   factory DatabaseHelper() => _instance;
 
@@ -24,7 +29,7 @@ class DatabaseHelper {
   /// 初始化数据库
   Future<Database> _initDatabase() async {
     final databasePath = await getDatabasesPath();
-    final path = join(databasePath, 'unique_health.db');
+    final path = join(databasePath, 'clipboard.db');
 
     return await openDatabase(
       path,
@@ -36,44 +41,119 @@ class DatabaseHelper {
 
   /// 创建数据库表
   Future<void> _onCreate(Database db, int version) async {
-    // 创建喝水记录表
+    // 1. entries 剪贴板主表
     await db.execute('''
-      CREATE TABLE water_records (
-        id TEXT PRIMARY KEY,
-        account_id TEXT,
-        uid TEXT,
-        amount INTEGER NOT NULL,
-        timestamp INTEGER NOT NULL,
-        note TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
+    CREATE TABLE IF NOT EXISTS $tableEntries (
+      id TEXT PRIMARY KEY,
+      seq INTEGER UNIQUE NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT,
+      preview TEXT,
+      text_content TEXT,
+      hash TEXT,
+      size_bytes INTEGER DEFAULT 0,
+      favorite INTEGER DEFAULT 0,
+      source_device TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      deleted INTEGER DEFAULT 0,
+      deleted_at INTEGER
+    )
     ''');
 
-    // 创建索引以提高查询效率
+    // entries索引
+    await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_seq ON $tableEntries(seq)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_entries_created_at ON $tableEntries(created_at DESC)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_entries_type ON $tableEntries(type)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_entries_favorite ON $tableEntries(favorite) WHERE deleted=0');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_entries_hash ON $tableEntries(hash) WHERE deleted=0');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_entries_deleted ON $tableEntries(deleted) WHERE deleted=0');
+
+    // 2. blobs 大内容表
     await db.execute('''
-      CREATE INDEX idx_water_records_timestamp
-      ON water_records(timestamp)
+    CREATE TABLE IF NOT EXISTS $tableBlobs (
+      entry_id TEXT PRIMARY KEY,
+      mime_type TEXT,
+      file_name TEXT,
+      file_path TEXT,
+      thumb_blob BLOB,
+      content_hash TEXT,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY(entry_id) REFERENCES $tableEntries(id) ON DELETE CASCADE
+    )
     ''');
 
+    //3. tags 标签
     await db.execute('''
-      CREATE INDEX idx_water_records_account_uid
-      ON water_records(account_id, uid)
+    CREATE TABLE IF NOT EXISTS $tableTags (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      color TEXT,
+      created_at INTEGER NOT NULL
+    )
     ''');
 
-    // 创建水设置表
+    // entry_tags 中间表，联合主键
     await db.execute('''
-      CREATE TABLE water_settings (
-        id INTEGER PRIMARY KEY,
-        account_id TEXT,
-        uid TEXT,
-        water_cpu INTEGER NOT NULL,
-        water_target INTEGER NOT NULL
-      )
+    CREATE TABLE IF NOT EXISTS $tableEntryTags (
+      entry_id TEXT NOT NULL,
+      tag_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY(entry_id, tag_id),
+      FOREIGN KEY(entry_id) REFERENCES $tableEntries(id) ON DELETE CASCADE,
+      FOREIGN KEY(tag_id) REFERENCES $tableTags(id) ON DELETE CASCADE
+    )
     ''');
 
-    // TODO: 添加其他表
-    // 例如：用户信息表、健康数据表等
+    //4. devices 配对设备
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS $tableDevices (
+      device_id TEXT PRIMARY KEY,
+      name TEXT,
+      platform TEXT,
+      token_hash TEXT,
+      cert_fingerprint TEXT,
+      last_seen_at INTEGER,
+      created_at INTEGER NOT NULL
+    )
+    ''');
+
+    //5. sync_state 每设备同步游标
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS $tableSyncState (
+      device_id TEXT PRIMARY KEY,
+      last_synced_seq INTEGER NOT NULL DEFAULT 0,
+      last_push_at INTEGER,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY(device_id) REFERENCES $tableDevices(device_id) ON DELETE CASCADE
+    )
+    ''');
+
+    //6. settings 键值配置
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS $tableSettings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER NOT NULL
+    )
+    ''');
+
+    //7. subscription 付费本地缓存
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS $tableSubscription (
+      is_pro INTEGER DEFAULT 0,
+      plan TEXT,
+      expiry INTEGER,
+      receipt_b64 TEXT,
+      updated_at INTEGER NOT NULL
+    )
+    ''');
   }
 
   /// 数据库升级

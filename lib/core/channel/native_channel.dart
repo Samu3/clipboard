@@ -1,9 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unique_health/core/auth/auth_provider.dart';
-import 'package:unique_health/core/locale/providers/locale_provider.dart';
-import 'package:unique_health/core/network/api_config.dart';
-import 'package:unique_health/core/utils/logger.dart';
+import 'package:clipboard/core/auth/auth_provider.dart';
+import 'package:clipboard/core/locale/providers/locale_provider.dart';
+import 'package:clipboard/core/network/api_config.dart';
+import 'package:clipboard/core/utils/logger.dart';
 import 'channel_names.dart';
 
 /// App Channel - 通用原生功能

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:unique_health/core/theme/app_colors.dart';
+import 'package:clipboard/core/theme/app_colors.dart';
 
 /// 自定义AppBar组件
 ///

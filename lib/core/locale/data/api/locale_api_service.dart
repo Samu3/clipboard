@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:unique_health/core/network/result/base_result.dart';
+import 'package:clipboard/core/network/result/base_result.dart';
 import '../../../../core/network/dio_provider.dart';
 
 part 'locale_api_service.g.dart';

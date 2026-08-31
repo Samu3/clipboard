@@ -334,8 +334,8 @@ import '../../data/models/user_model.dart';
 ### 使用绝对导入（跨Feature）
 ```dart
 // ✅ 跨Feature使用绝对导入
-import 'package:unique_health/core/theme/app_colors.dart';
-import 'package:unique_health/shared/widgets/buttons/primary_button.dart';
+import 'package:clipboard/core/theme/app_colors.dart';
+import 'package:clipboard/shared/widgets/buttons/primary_button.dart';
 ```
 
 ## 测试目录结构

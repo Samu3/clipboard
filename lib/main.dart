@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:unique_health/core/channel/native_channel.dart';
-import 'package:unique_health/core/locale/providers/locale_provider.dart';
-import 'package:unique_health/core/network/api_config.dart';
-import 'package:unique_health/core/theme/app_theme.dart';
-import 'package:unique_health/core/theme/theme_mode_notifier.dart';
-import 'package:unique_health/core/router/app_router.dart';
-import 'package:unique_health/core/utils/logger.dart';
+import 'package:clipboard/core/channel/native_channel.dart';
+import 'package:clipboard/core/locale/providers/locale_provider.dart';
+import 'package:clipboard/core/network/api_config.dart';
+import 'package:clipboard/core/theme/app_theme.dart';
+import 'package:clipboard/core/theme/theme_mode_notifier.dart';
+import 'package:clipboard/core/router/app_router.dart';
+import 'package:clipboard/core/utils/logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

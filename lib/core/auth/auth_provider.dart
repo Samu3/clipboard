@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:unique_health/core/auth/auth_state.dart';
-import 'package:unique_health/core/channel/native_channel.dart';
-import 'package:unique_health/core/utils/logger.dart';
+import 'package:clipboard/core/auth/auth_state.dart';
+import 'package:clipboard/core/channel/native_channel.dart';
+import 'package:clipboard/core/utils/logger.dart';
 
 part 'auth_provider.g.dart';
 

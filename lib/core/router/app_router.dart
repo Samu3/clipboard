@@ -2,29 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:unique_health/features/water/pages/water_page.dart';
-import 'package:unique_health/features/water/pages/water_record_page.dart';
+import 'package:clipboard/features/macos/index/pages/mac_index.dart';
+
 part 'app_router.g.dart';
 
 @Riverpod(keepAlive: true)
 GoRouter goRouter(GoRouterRef ref) {
   return GoRouter(
-    initialLocation: '/water',
+    initialLocation: '/',
     routes: [
-      // GoRoute(
-      //   path: '/',
-      //   name: 'home',
-      //   builder: (context, state) => const HomePage(),
-      // ),
       GoRoute(
-        path: '/water',
-        name: 'water',
-        builder: (context, state) => const WaterPage(),
-      ),
-      GoRoute(
-        path: '/water/record',
-        name: 'waterRecord',
-        builder: (context, state) => const WaterRecordPage(),
+        path: '/',
+        name: 'home',
+        builder: (context, state) => const MacIndex(),
       ),
     ],
   );

@@ -1,9 +1,9 @@
 import 'package:intl/locale.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:unique_health/core/channel/native_channel.dart';
-import 'package:unique_health/core/locale/data/api/locale_api_service.dart';
-import 'package:unique_health/core/utils/logger.dart';
+import 'package:clipboard/core/channel/native_channel.dart';
+import 'package:clipboard/core/locale/data/api/locale_api_service.dart';
+import 'package:clipboard/core/utils/logger.dart';
 import '../data/datasources/locale_datasource.dart';
 import '../data/repositories/locale_repository_impl.dart';
 import '../domain/entities/language.dart';

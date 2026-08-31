@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:unique_health/core/theme/app_colors.dart';
-import 'package:unique_health/core/locale/utils/translation_helper.dart';
+import 'package:clipboard/core/theme/app_colors.dart';
+import 'package:clipboard/core/locale/utils/translation_helper.dart';
 
 /// 通用输入弹窗
 ///
