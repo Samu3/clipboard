@@ -1,3 +1,5 @@
+import 'package:clipboard/features/macos/index/channel/native_clipboard_channel.dart';
+import 'package:clipboard/features/macos/index/providers/clipboard_listener_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +30,9 @@ void main() async {
   // 清理7天前的日志
   await logger.cleanOldLogs(keepDays: 7);
 
+  // final container = ProviderContainer();
+  // 初始化原生MethodChannel，Swift自动监听剪贴板
+
   // _testNetworkConnectivity();
   runApp(
     ProviderScope(
@@ -47,6 +52,8 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 设置 AppChannel 的 ref，让它可以访问 providers
     AppChannel().setRef(ref);
+    // 使用 watch 保持 NativeClipboardChannel 实例存活，确保 MethodCallHandler 能接收回调
+    ref.watch(nativeClipboardProvider);
 
     // 直接获取值，如果为 null 显示加载界面
     final themeMode = ref.watch(themeNotifierProvider).valueOrNull;

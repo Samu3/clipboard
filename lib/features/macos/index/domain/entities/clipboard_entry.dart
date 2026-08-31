@@ -13,6 +13,8 @@ class ClipboardEntry {
   final int updatedAt;
   final int deleted; // 0/1 软删除
   final int? deletedAt;
+  // ==========新增==========
+  final String? filePath;
 
   const ClipboardEntry({
     required this.id,
@@ -29,9 +31,9 @@ class ClipboardEntry {
     required this.updatedAt,
     required this.deleted,
     this.deletedAt,
+    this.filePath, // 新增参数
   });
 
-  // copyWith 用于更新字段（修改、软删除非常关键）
   ClipboardEntry copyWith({
     String? id,
     int? seq,
@@ -47,6 +49,7 @@ class ClipboardEntry {
     int? updatedAt,
     int? deleted,
     int? deletedAt,
+    String? filePath,
   }) {
     return ClipboardEntry(
       id: id ?? this.id,
@@ -63,6 +66,47 @@ class ClipboardEntry {
       updatedAt: updatedAt ?? this.updatedAt,
       deleted: deleted ?? this.deleted,
       deletedAt: deletedAt ?? this.deletedAt,
+      filePath: filePath ?? this.filePath,
     );
+  }
+
+  factory ClipboardEntry.fromJson(Map<String, dynamic> json) {
+    return ClipboardEntry(
+      id: json['id'] as String,
+      seq: json['seq'] as int,
+      type: json['type'] as String,
+      title: json['title'] as String?,
+      preview: json['preview'] as String?,
+      textContent: json['textContent'] as String?,
+      hash: json['hash'] as String?,
+      sizeBytes: json['sizeBytes'] as int,
+      favorite: json['favorite'] as int,
+      sourceDevice: json['sourceDevice'] as String?,
+      createdAt: json['createdAt'] as int,
+      updatedAt: json['updatedAt'] as int,
+      deleted: json['deleted'] as int,
+      deletedAt: json['deletedAt'] as int?,
+      filePath: json['filePath'] as String?, // 新增
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'seq': seq,
+      'type': type,
+      'title': title,
+      'preview': preview,
+      'textContent': textContent,
+      'hash': hash,
+      'sizeBytes': sizeBytes,
+      'favorite': favorite,
+      'sourceDevice': sourceDevice,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+      'deleted': deleted,
+      'deletedAt': deletedAt,
+      'filePath': filePath, // 新增
+    };
   }
 }

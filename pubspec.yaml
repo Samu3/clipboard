@@ -56,7 +56,7 @@ dependencies:
   fl_chart: ^0.68.0
   flutter_svg: ^2.0.3
   flutter_slidable: ^3.1.0
-
+  file_picker: ^8.1.2
   # Utilities
   logger: ^2.0.2
   intl: ^0.19.0

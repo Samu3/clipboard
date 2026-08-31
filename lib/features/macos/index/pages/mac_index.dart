@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:clipboard/features/macos/index/providers/clipboard_list_notifier.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipboard/features/macos/index/domain/entities/clipboard_entry.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_providers.dart';
+import 'package:path_provider/path_provider.dart';
 
 class MacIndex extends ConsumerStatefulWidget {
   const MacIndex({super.key});
@@ -15,10 +18,11 @@ class MacIndex extends ConsumerStatefulWidget {
 
 class _MacIndexState extends ConsumerState<MacIndex> {
   Timer? _searchDebounceTimer;
+  // 新增：选中条目
+  ClipboardEntry? selectedEntry;
 
   @override
   void dispose() {
-    // 页面销毁，取消定时器，防止内存泄漏
     _searchDebounceTimer?.cancel();
     super.dispose();
   }
@@ -28,29 +32,69 @@ class _MacIndexState extends ConsumerState<MacIndex> {
     final filterType = ref.watch(clipboardFilterProvider);
     final listAsync = ref.watch(clipboardListNotifierProvider);
     final notifier = ref.watch(clipboardListNotifierProvider.notifier);
+    final cacheDirAsync = ref.watch(appCacheDirProvider);
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        child: Row(
-          children: [
-            leftMenu(context, ref, filterType),
-            Expanded(
-              child: buildRightMainArea(context, ref, listAsync, notifier),
-            ),
-          ],
-        ),
+    return cacheDirAsync.when(
+      loading: () => const Material(
+        color: Colors.transparent,
+        child: Center(child: CircularProgressIndicator()),
       ),
+      error: (err, stack) => Material(
+        color: Colors.transparent,
+        child: Center(child: Text("缓存目录初始化失败：$err")),
+      ),
+      data: (Directory cacheDir) {
+        // ✅ cacheDir 拿到了，往下传递给所有子组件
+        return Material(
+          color: Colors.transparent,
+          child: Container(
+            child: Row(
+              children: [
+                leftMenu(context, ref, filterType),
+                Expanded(
+                  child: buildRightMainArea(
+                    context,
+                    ref,
+                    listAsync,
+                    notifier,
+                    selectedEntry,
+                    cacheDir: cacheDir, // 把cacheDir传进去
+                    onSelectEntry: (entry) {
+                      setState(() {
+                        selectedEntry = entry;
+                      });
+                    },
+                    onCloseDetail: () {
+                      setState(() {
+                        selectedEntry = null;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  /// 右侧主内容区域
   Widget buildRightMainArea(
     BuildContext context,
     WidgetRef ref,
     AsyncValue<List<ClipboardEntry>> listAsync,
     ClipboardListNotifier notifier,
-  ) {
+    ClipboardEntry? selectedEntry, {
+    required Directory cacheDir, // 新增
+    required ValueChanged<ClipboardEntry> onSelectEntry,
+    required VoidCallback onCloseDetail,
+  }) {
+    if (selectedEntry != null) {
+      // 传给详情页
+      return buildDetailPage(selectedEntry, onCloseDetail, cacheDir);
+    }
+
+    // 否则渲染原来的列表页面
     return Container(
       color: Colors.white,
       child: Column(
@@ -106,10 +150,8 @@ class _MacIndexState extends ConsumerState<MacIndex> {
               data: (entryList) {
                 return NotificationListener<ScrollUpdateNotification>(
                   onNotification: (notification) {
-                    // 判断是否滚动到底部
                     final scrollDistance = notification.metrics.pixels;
                     final maxScroll = notification.metrics.maxScrollExtent;
-                    // 距离底部还有200像素预加载
                     if (scrollDistance >= maxScroll - 200) {
                       if (!notifier.hasMore) return false;
                       notifier.loadMore();
@@ -120,7 +162,6 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                     padding: EdgeInsets.zero,
                     itemCount: entryList.length + 1,
                     itemBuilder: (ctx, index) {
-                      // 最后一项，渲染加载更多footer
                       if (index == entryList.length) {
                         if (notifier.hasMore) {
                           return const Padding(
@@ -143,6 +184,8 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                         context,
                         ref,
                         entry,
+                        cacheDir: cacheDir, // 传给item
+                        onTapItem: () => onSelectEntry(entry),
                         onToggleFavorite: () =>
                             notifier.toggleFavorite(entry.id),
                         onDelete: () => notifier.softDelete(entry.id),
@@ -158,115 +201,248 @@ class _MacIndexState extends ConsumerState<MacIndex> {
     );
   }
 
-  /// 单个列表Item
-  Widget item(
-    BuildContext context,
-    WidgetRef ref,
-    ClipboardEntry entry, {
-    required VoidCallback onToggleFavorite,
-    required VoidCallback onDelete,
-  }) {
-    final timeText = _formatTime(entry.createdAt);
-    final sourceText = entry.sourceDevice ?? "本机";
+  // ========== 详情页面 ==========
+  Widget buildDetailPage(
+      ClipboardEntry entry, VoidCallback onClose, Directory cacheDir) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: ShapeDecoration(
-        color: const Color(0xFFFFFFFF),
-        shape: RoundedRectangleBorder(
-          side: BorderSide(
-            width: 0.63,
-            color: const Color(0xFFF7F8FA),
-          ),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 26,
-            height: 26,
-            decoration: ShapeDecoration(
-              color: const Color(0xFFEEF1FF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-              ),
-            ),
-            child: Center(
-              child: Text(
-                _getTypeIcon(entry.type),
-                style: const TextStyle(fontSize: 14, color: Color(0xFF4F6BFF)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
               children: [
-                Text(
-                  entry.title ?? entry.preview ?? "",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: const Color(0xFF1A1D23),
-                    fontSize: 12,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                    height: 1.40,
-                  ),
+                GestureDetector(
+                  onTap: onClose,
+                  child: const Icon(Icons.arrow_back_ios_new, size: 16),
                 ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Text(
-                      timeText,
-                      style: TextStyle(
-                        color: const Color(0xFF9CA3AF),
-                        fontSize: 10,
-                        fontFamily: 'DM Mono',
-                        fontWeight: FontWeight.w400,
-                        height: 1.50,
-                      ),
-                    ),
-                    const Text(
-                      ' · ',
-                      style: TextStyle(
-                        color: const Color(0xFFC4C9D4),
-                        fontSize: 10,
-                        fontFamily: 'Inter',
-                        height: 1.50,
-                      ),
-                    ),
-                    Text(
-                      sourceText,
-                      style: TextStyle(
-                        color: const Color(0xFF9CA3AF),
-                        fontSize: 10,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                        height: 1.50,
-                      ),
-                    ),
-                  ],
-                ),
+                const SizedBox(width: 8),
+                Text(entry.type == "image"
+                    ? "图片详情"
+                    : entry.type == "file"
+                        ? "文件详情"
+                        : "文本详情"),
+                const Spacer(),
+                if (entry.type == "file")
+                  ElevatedButton(
+                      onPressed: () async {
+                        final List<String> tempPaths =
+                            (entry.textContent ?? "").split(",").toList();
+                        final result =
+                            await FilePicker.platform.getDirectoryPath();
+                        if (result == null) return;
+                        final saveDir = Directory(result!);
+                        for (final srcPath in tempPaths) {
+                          final srcFile = File(srcPath);
+                          if (!await srcFile.exists()) continue;
+                          final targetFile = File(
+                              "${saveDir.path}/${srcFile.path.split("/").last}");
+                          await srcFile.copy(targetFile.path);
+                        }
+                      },
+                      child: const Text("下载"))
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          if (entry.favorite == 1)
-            Container(
-              width: 3.99,
-              height: 3.99,
-              decoration: ShapeDecoration(
-                color: const Color(0xFF4F6BFF),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(2)),
-              ),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              // 传入cacheDir
+              child: buildDetailContent(entry, cacheDir),
             ),
+          )
         ],
       ),
     );
+  }
+
+  Widget buildDetailContent(ClipboardEntry entry, Directory cacheDir) {
+    switch (entry.type) {
+      case "text":
+        return SelectableText(
+          entry.textContent ?? "",
+          style: const TextStyle(
+            fontSize: 13,
+            height: 1.5,
+            color: Color(0xFF1A1D23),
+          ),
+        );
+      case "image":
+        // ✅ 同步获取路径，不再FutureBuilder
+        final imgPath = getImageCachePath(cacheDir, entry.hash ?? "");
+        debugPrint(imgPath);
+        return InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4,
+          child: Image.file(
+            File(imgPath),
+            fit: BoxFit.contain,
+            errorBuilder: (ctx, err, st) => const Text("图片损坏"),
+          ),
+        );
+      case "file":
+        final List<String> tempPaths =
+            (entry.textContent ?? "").split(",").toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(entry.preview ?? ""),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                final result = await FilePicker.platform.getDirectoryPath();
+                if (result == null) return;
+                final saveDir = Directory(result!);
+                for (final srcPath in tempPaths) {
+                  final srcFile = File(srcPath);
+                  if (!await srcFile.exists()) continue;
+                  final targetFile =
+                      File("${saveDir.path}/${srcFile.path.split("/").last}");
+                  await srcFile.copy(targetFile.path);
+                }
+              },
+              child: const Text("下载文件"),
+            )
+          ],
+        );
+      default:
+        return Text(entry.preview ?? "");
+    }
+  }
+
+  Widget item(BuildContext context, WidgetRef ref, ClipboardEntry entry,
+      {required Directory cacheDir, // 新增
+      required VoidCallback onTapItem,
+      required VoidCallback onToggleFavorite,
+      required VoidCallback onDelete}) {
+    final timeText = _formatTime(entry.createdAt);
+    final sourceText = entry.sourceDevice ?? "本机";
+    return InkWell(
+      onTap: onTapItem,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: ShapeDecoration(
+          color: const Color(0xFFFFFFFF),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(
+              width: 0.63,
+              color: const Color(0xFFF7F8FA),
+            ),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 26,
+              height: 26,
+              child: _buildItemLeading(entry, cacheDir),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.title ?? "",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF1A1D23),
+                      fontSize: 12,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w400,
+                      height: 1.40,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        timeText,
+                        style: const TextStyle(
+                          color: Color(0xFF9CA3AF),
+                          fontSize: 10,
+                          fontFamily: 'DM Mono',
+                          fontWeight: FontWeight.w400,
+                          height: 1.50,
+                        ),
+                      ),
+                      const Text(
+                        ' · ',
+                        style: TextStyle(
+                          color: Color(0xFFC4C9D4),
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          height: 1.50,
+                        ),
+                      ),
+                      Text(
+                        sourceText,
+                        style: const TextStyle(
+                          color: Color(0xFF9CA3AF),
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w400,
+                          height: 1.50,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (entry.favorite == 1)
+              Container(
+                width: 3.99,
+                height: 3.99,
+                decoration: ShapeDecoration(
+                  color: Color(0xFF4F6BFF),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemLeading(ClipboardEntry entry, Directory cacheDir) {
+    if (entry.type == "image") {
+      final imgPath = getImageCachePath(cacheDir, entry.hash ?? "");
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(5),
+        child: Image.file(
+          File(imgPath),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return const ColoredBox(color: Color(0xFFEEF1FF));
+          },
+        ),
+      );
+    } else {
+      return Container(
+        decoration: ShapeDecoration(
+          color: Color(0xFFEEF1FF),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(5),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            _getTypeIcon(entry.type),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF4F6BFF)),
+          ),
+        ),
+      );
+    }
   }
 
   Widget leftMenu(BuildContext context, WidgetRef ref, String activeFilter) {
@@ -448,4 +624,9 @@ class _MacIndexState extends ConsumerState<MacIndex> {
     final day = hour ~/ 24;
     return "$day 天前";
   }
+}
+
+/// 封装同步获取图片完整路径（依赖上面provider加载完成后使用）
+String getImageCachePath(Directory cacheDir, String hash) {
+  return "${cacheDir.path}/$hash.png";
 }

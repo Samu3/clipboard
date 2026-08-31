@@ -2,6 +2,8 @@ import Cocoa
 import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
+  private var clipboardMonitor: ClipboardMonitor?
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController.init()
     let windowFrame = self.frame
@@ -10,6 +12,20 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
+    // 设置 MethodChannel
+      let channel = FlutterMethodChannel(
+        name: "com.clipboard/channel",
+        binaryMessenger: flutterViewController.engine.binaryMessenger
+      )
+
+    // 创建并启动粘贴板监听器
+    clipboardMonitor = ClipboardMonitor(channel: channel)
+    clipboardMonitor?.startMonitoring()
+
     super.awakeFromNib()
+  }
+
+  deinit {
+    clipboardMonitor?.stopMonitoring()
   }
 }
