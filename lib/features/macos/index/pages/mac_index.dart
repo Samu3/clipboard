@@ -180,16 +180,31 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                         }
                       }
                       final entry = entryList[index];
-                      return item(
-                        context,
-                        ref,
-                        entry,
-                        cacheDir: cacheDir, // 传给item
-                        onTapItem: () => onSelectEntry(entry),
-                        onToggleFavorite: () =>
-                            notifier.toggleFavorite(entry.id),
-                        onDelete: () => notifier.softDelete(entry.id),
-                      );
+                      return item(context, ref, entry,
+                          cacheDir: cacheDir, // 传给item
+                          onTapItem: () => onSelectEntry(entry),
+                          onToggleFavorite: () =>
+                              notifier.toggleFavorite(entry.id),
+                          onDelete: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text("确认删除"),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      child: const Text("取消")),
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text("删除")),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              notifier.softDelete(entry);
+                            }
+                          });
                     },
                   ),
                 );
@@ -407,6 +422,23 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                       borderRadius: BorderRadius.circular(2)),
                 ),
               ),
+
+            // ====== 新增删除按钮 ======
+            const SizedBox(width: 8),
+
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                onPressed: onDelete,
+                icon: const Icon(
+                  Icons.close,
+                  size: 14,
+                  color: Color(0xFF9CA3AF),
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clipboard/features/macos/index/domain/entities/clipboard_entry.dart';
 import 'package:clipboard/features/macos/index/domain/repositories/clipboard_repository.dart';
@@ -116,20 +118,40 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
   }
 
   /// 软删除
-  Future<void> softDelete(String entryId) async {
+  Future<void> softDelete(ClipboardEntry deleteEntry) async {
+    deleteFile(deleteEntry);
+
     final list = state.valueOrNull;
     if (list == null) return;
 
     final repo = await ref.watch(clipboardRepositoryProvider.future);
-    final entry = list.firstWhere((e) => e.id == entryId);
+    final entry = list.firstWhere((e) => e.id == deleteEntry.id);
     final now = DateTime.now().millisecondsSinceEpoch;
     final maxSeq = await repo.getMaxSeq();
     final newSeq = maxSeq + 1;
 
-    await repo.softDeleteEntry(entryId, newSeq, now);
-    final newList = list.where((item) => item.id != entryId).toList();
+    await repo.softDeleteEntry(entry.id, newSeq, now);
+    final newList = list.where((item) => item.id != deleteEntry.id).toList();
     _cacheList = newList;
     state = AsyncData(List.from(newList));
+  }
+
+  void deleteFile(ClipboardEntry entry) async {
+    if (entry.type == "image" && entry.filePath != null) {
+      final file = File(entry.filePath!);
+      if (await file.exists()) {
+        await file.delete();
+        print("已删除剪贴板图片：${entry.filePath}");
+      }
+    }
+    // 可选：file类型，删除临时文件
+    if (entry.type == "file") {
+      // 如果你的file存储也是filePath数组，在这里循环删除
+      // for(final path in entry.payloadFileList){
+      //   final f = File(path);
+      //   if(await f.exists()) await f.delete();
+      // }
+    }
   }
 
   /// 新增记录

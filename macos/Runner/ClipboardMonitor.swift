@@ -33,13 +33,14 @@ class ClipboardMonitor {
             changeCount = currentChangeCount
             print("📊 粘贴板 changeCount: \(oldCount) -> \(currentChangeCount)")
 
-            if let string = pasteboard.string(forType: .string) {
-                notifyTextChange(string)
-            } else if let image = getImageFromPasteboard() {
-                notifyImageChange(image)
-            } else if let fileURLs = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] {
-                notifyFileChange(fileURLs)
-            }
+            // 【重点】优先判断文件！
+                   if let image = getImageFromPasteboard() {
+                       notifyImageChange(image)
+                   } else if let string = pasteboard.string(forType: .string) {
+                       notifyTextChange(string)
+                   } else  if let fileURLs = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL], !fileURLs.isEmpty {
+                       notifyFileChange(fileURLs)
+                   }
         }
     }
 
@@ -96,14 +97,33 @@ class ClipboardMonitor {
             let fileName = srcUrl.lastPathComponent
             let uuidName = "\(UUID().uuidString)-\(fileName)"
             let destUrl = tempDir.appendingPathComponent(uuidName)
+            
+            // Mac沙盒关键：访问粘贴板文件安全书签
+            let accessGranted = srcUrl.startAccessingSecurityScopedResource()
+            defer {
+                if accessGranted {
+                    srcUrl.stopAccessingSecurityScopedResource()
+                }
+            }
+            
+            if !accessGranted {
+                print("⚠️ 文件无法获取安全访问权限: \(srcUrl.path)")
+                continue
+            }
+            
             do {
-                // 复制原文件到临时目录
                 try FileManager.default.copyItem(at: srcUrl, to: destUrl)
                 tempFilePaths.append(destUrl.path)
+                print("✅ 文件复制成功: \(destUrl.path)")
             } catch {
-                print("文件复制失败 \(srcUrl.path): \(error)")
+                print("❌ 文件复制失败 \(srcUrl.path): \(error)")
             }
         }
+        
+        if tempFilePaths.isEmpty {
+            return
+        }
+        
         let args: [String: Any] = [
             "type": "file",
             "payload": ["filePaths": tempFilePaths]
