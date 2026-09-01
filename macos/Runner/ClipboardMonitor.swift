@@ -9,6 +9,7 @@ class ClipboardMonitor {
     private let pasteboard = NSPasteboard.general
     // 临时目录（给文件类型使用）
     private let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
+    private var skipNextPasteboardChange = false
 
     init(channel: FlutterMethodChannel) {
         self.channel = channel
@@ -21,6 +22,8 @@ class ClipboardMonitor {
     
     func setupMethodCall(){
         self.channel?.setMethodCallHandler { [weak self] call, result in
+            
+            guard let `self` = self else { return }
                    if call.method == "copyImageToPasteboard" {
                        guard let args = call.arguments as? [String:Any],
                              let filePath = args["filePath"] as? String else {
@@ -36,6 +39,9 @@ class ClipboardMonitor {
                        pasteboard.clearContents()
                        pasteboard.writeObjects([image])
                        result(true)
+                       
+                       self.skipNextPasteboardChange = true
+
                    }
                    // 保留你原有 onClipboardChange 逻辑
                }
@@ -58,7 +64,10 @@ class ClipboardMonitor {
             let oldCount = changeCount
             changeCount = currentChangeCount
             print("📊 粘贴板 changeCount: \(oldCount) -> \(currentChangeCount)")
-
+            if skipNextPasteboardChange {
+                  skipNextPasteboardChange = false
+                  return
+              }
             // 【重点】优先判断文件！
             if let fileURLs = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL], !fileURLs.isEmpty {
                notifyFileChange(fileURLs)

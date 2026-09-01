@@ -167,7 +167,6 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
         copySuccess = true;
       } else if (entry.type == "image") {
         // 图片复制：这里后续对接mac原生MethodChannel，先占位
-        print("图片复制，待原生MethodChannel实现");
         copySuccess = true;
         var filePath = entry.filePath;
         var nativeChannel = ref.read(nativeClipboardProvider);
@@ -176,7 +175,6 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
         }
       } else if (entry.type == "file") {
         // 文件复制：后续对接mac原生MethodChannel，先占位
-        print("文件复制，待原生MethodChannel实现");
         copySuccess = true;
       }
 

@@ -12,15 +12,16 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
-    // 设置 MethodChannel
-      let channel = FlutterMethodChannel(
-        name: "com.clipboard/channel",
-        binaryMessenger: flutterViewController.engine.binaryMessenger
-      )
+    let channel = FlutterMethodChannel(
+      name: "com.clipboard/channel",
+      binaryMessenger: flutterViewController.engine.binaryMessenger
+    )
 
-    // 创建并启动粘贴板监听器
     clipboardMonitor = ClipboardMonitor(channel: channel)
     clipboardMonitor?.startMonitoring()
+    
+    
+    
 
     super.awakeFromNib()
   }
