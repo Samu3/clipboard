@@ -191,6 +191,8 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
     } catch (e) {}
   }
 
+  void hotKeyCaptured() {}
+
   /// 新增记录
   Future<void> addEntry(
       {required String id,

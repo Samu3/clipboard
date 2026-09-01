@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:clipboard/features/macos/index/providers/clipboard_list_notifier.dart';
@@ -19,6 +20,10 @@ class NativeClipboardChannel {
   final Ref ref;
   late MethodChannel _channel;
   String? _lastHash;
+
+  // 快捷键录制流控制器
+  final _hotkeyStreamController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get hotkeyStream => _hotkeyStreamController.stream;
 
   NativeClipboardChannel(this.ref) {
     _channel = const MethodChannel("com.clipboard/channel");
@@ -48,7 +53,26 @@ class NativeClipboardChannel {
     } else if (call.method == "openSettings") {
       // 打开设置
       _openSettings();
+    } else if (call.method == "onHotkeyCaptured") {
+      // 快捷键录制回调
+      _handleHotkeyCaptured(call.arguments);
     }
+  }
+
+  void _handleHotkeyCaptured(dynamic args) {
+    final Map data = args as Map;
+    final int keyCode = data['keyCode'];
+    final int modifiers = data['modifiers'];
+    final String displayName = data['displayName'];
+
+    debugPrint("🎹 捕获到快捷键: $displayName, keyCode: $keyCode, modifiers: $modifiers");
+
+    // 通过流通知设置页面
+    _hotkeyStreamController.add({
+      'keyCode': keyCode,
+      'modifiers': modifiers,
+      'displayName': displayName,
+    });
   }
 
   Future<List<Map<String, dynamic>>> _getClipboardHistory(dynamic args) async {
@@ -111,6 +135,32 @@ class NativeClipboardChannel {
       return result ?? false;
     } catch (e) {
       debugPrint("copyImageToPasteboard error: $e");
+      return false;
+    }
+  }
+
+  // ====== 新增：开机自启动功能 ======
+  /// 设置开机自启动
+  Future<bool> setLaunchAtLogin(bool enabled) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        "setLaunchAtLogin",
+        {"enabled": enabled},
+      );
+      return result ?? false;
+    } catch (e) {
+      debugPrint("setLaunchAtLogin error: $e");
+      return false;
+    }
+  }
+
+  /// 获取开机自启动状态
+  Future<bool> getLaunchAtLoginStatus() async {
+    try {
+      final result = await _channel.invokeMethod<bool>("getLaunchAtLoginStatus");
+      return result ?? false;
+    } catch (e) {
+      debugPrint("getLaunchAtLoginStatus error: $e");
       return false;
     }
   }

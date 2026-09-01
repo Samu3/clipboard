@@ -10,14 +10,20 @@ class ClipboardMonitor {
     // 临时目录（给文件类型使用）
     private let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
     public var skipNextPasteboardChange = false
+    
+    private var hotkeyRecorder: HotkeyRecorder = HotkeyRecorder.shared
+
 
     init(channel: FlutterMethodChannel) {
         self.channel = channel
         self.changeCount = pasteboard.changeCount
-        
+
+        // 设置 HotkeyRecorder 的 channel
+        self.hotkeyRecorder.channel = channel
+
         self.setupMethodCall()
-        
-      
+
+
     }
     
     func setupMethodCall(){
@@ -42,8 +48,24 @@ class ClipboardMonitor {
                        
                        self.skipNextPasteboardChange = true
 
+                   }else if call.method == "startRecord"{
+                       hotkeyRecorder.startRecord()
+
+                       
+                   }else if call.method == "stopRecord"{
+                       hotkeyRecorder.stopRecord()
+                   }else if call.method == "updateHotKey"{
+                       
+                       
+                       guard let args = call.arguments as? [String:Any],
+                             let modifierKeyCode = args["modifierKeyCode"] as? UInt32, let mainKeyCode = args["mainKeyCode"] as? UInt32 else {
+                           result(false)
+                           return
+                       }
+                       
+                       HotKeyManager.shared.updateHotKey(keyCode: mainKeyCode, modifiers: modifierKeyCode)
+                       
                    }
-                   // 保留你原有 onClipboardChange 逻辑
                }
     }
 

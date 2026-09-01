@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:clipboard/features/macos/settings/presentation/providers/settings_notifier.dart';
+import 'package:clipboard/features/macos/index/channel/native_clipboard_channel.dart';
+import 'dart:async';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -9,64 +12,87 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
+  StreamSubscription? _hotkeySubscription;
+  String? _capturedHotkey;
+  int? _capturedKeyCode;
+  int? _capturedModifiers;
+
+  @override
+  void dispose() {
+    _hotkeySubscription?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(settingsNotifierProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // 顶部导航栏
-          _buildTopBar(context),
-          const Divider(height: 1),
+      body: settingsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('错误: $err')),
+        data: (settings) => Column(
+          children: [
+            // 顶部导航栏
+            _buildTopBar(context),
+            const Divider(height: 1),
 
-          // 设置内容
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSection(
-                    title: '快捷键设置',
-                    children: [
-                      _buildHotKeyItem(
-                        label: '显示粘贴板菜单',
-                        currentHotKey: '⌘⇧V',
-                        onTap: () {
-                          _showHotKeyDialog(context);
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _buildSection(
-                    title: '常规设置',
-                    children: [
-                      _buildSwitchItem(
-                        label: '开机自启动',
-                        value: false,
-                        onChanged: (value) {
-                          // TODO: 实现开机自启动
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _buildSection(
-                    title: '关于',
-                    children: [
-                      _buildInfoItem(
-                        label: '版本',
-                        value: '1.0.0',
-                      ),
-                    ],
-                  ),
-                ],
+            // 设置内容
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSection(
+                      title: '快捷键设置',
+                      children: [
+                        _buildHotKeyItem(
+                          label: '显示粘贴板菜单',
+                          currentHotKey: settings.hotKey,
+                          onTap: () {
+                            _showHotKeyDialog(context);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      title: '常规设置',
+                      children: [
+                        _buildSwitchItem(
+                          label: '开机自启动',
+                          value: settings.autoStart,
+                          onChanged: (value) {
+                            ref
+                                .read(settingsNotifierProvider.notifier)
+                                .updateAutoStart(value);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      title: '关于',
+                      children: [
+                        _buildInfoItem(
+                          label: '版本',
+                          value: '1.0.0',
+                        ),
+                        _buildInfoItem(
+                          label: '意见反馈',
+                          value: '328889498@qq.com',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -233,24 +259,99 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _showHotKeyDialog(BuildContext context) {
+    setState(() {
+      _capturedHotkey = null;
+      _capturedKeyCode = null;
+      _capturedModifiers = null;
+    });
+
+    // 开始录制快捷键
+    final notifier = ref.read(settingsNotifierProvider.notifier);
+    notifier.startHotKey();
+
+    // 监听快捷键录制
+    final nativeChannel = ref.read(nativeClipboardProvider);
+    _hotkeySubscription?.cancel();
+    _hotkeySubscription = nativeChannel.hotkeyStream.listen((data) {
+      setState(() {
+        _capturedHotkey = data['displayName'] as String;
+        _capturedKeyCode = data['keyCode'] as int;
+        _capturedModifiers = data['modifiers'] as int;
+      });
+    });
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('修改快捷键'),
-        content: const Text('按下你想设置的快捷键组合'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              // TODO: 保存快捷键并通过 MethodChannel 更新到 native
-              Navigator.of(context).pop();
-            },
-            child: const Text('确定'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // 监听捕获状态
+          _hotkeySubscription = nativeChannel.hotkeyStream.listen((data) {
+            setDialogState(() {
+              _capturedHotkey = data['displayName'] as String;
+              _capturedKeyCode = data['keyCode'] as int;
+              _capturedModifiers = data['modifiers'] as int;
+            });
+          });
+
+          return AlertDialog(
+            title: const Text('修改快捷键'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('按下你想设置的快捷键组合'),
+                const SizedBox(height: 16),
+                if (_capturedHotkey != null)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF1FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF4F6BFF)),
+                    ),
+                    child: Text(
+                      _capturedHotkey!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF4F6BFF),
+                        fontFamily: 'DM Mono',
+                      ),
+                    ),
+                  )
+                else
+                  const CircularProgressIndicator(),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  _hotkeySubscription?.cancel();
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: _capturedHotkey != null
+                    ? () async {
+                        // 保存快捷键
+                        await notifier.updateHotKey(
+                          _capturedHotkey!,
+                          _capturedModifiers!,
+                          _capturedKeyCode!,
+                        );
+                        _hotkeySubscription?.cancel();
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                      }
+                    : null,
+                child: const Text('确定'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

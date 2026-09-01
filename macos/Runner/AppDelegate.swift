@@ -26,9 +26,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 clipboardMonitor = ClipboardMonitor(channel: channel)
                 clipboardMonitor?.startMonitoring()
-                
+
                 clipboardMenuManager = ClipboardMenuManager(channel: channel,appDelegate: self)
-           
+
+                // 设置开机自启动的 Method Channel 处理
+                setupLaunchAtLoginHandler(channel: channel)
             }
         }
         
@@ -98,6 +100,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
+    }
+
+    // 设置开机自启动的 Method Channel 处理
+    private func setupLaunchAtLoginHandler(channel: FlutterMethodChannel) {
+        channel.setMethodCallHandler { [weak self] (call, result) in
+            guard let self = self else {
+                result(FlutterError(code: "UNAVAILABLE", message: "AppDelegate is unavailable", details: nil))
+                return
+            }
+
+            switch call.method {
+            case "setLaunchAtLogin":
+                guard let args = call.arguments as? [String: Any],
+                      let enabled = args["enabled"] as? Bool else {
+                    result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments", details: nil))
+                    return
+                }
+
+                do {
+                    if enabled {
+                        try LaunchAtLoginManager.shared.enableLaunchAtLogin()
+                    } else {
+                        try LaunchAtLoginManager.shared.disableLaunchAtLogin()
+                    }
+                    result(true)
+                } catch {
+                    result(FlutterError(code: "ERROR", message: "Failed to set launch at login: \(error)", details: nil))
+                }
+
+            case "getLaunchAtLoginStatus":
+                let isEnabled = LaunchAtLoginManager.shared.isLaunchAtLoginEnabled
+                result(isEnabled)
+
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
     }
 }
 

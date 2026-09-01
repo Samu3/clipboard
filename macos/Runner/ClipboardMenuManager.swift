@@ -74,11 +74,7 @@ class ClipboardMenuManager {
         let clearItem = NSMenuItem(title: "清除历史", action: #selector(clearHistory), keyEquivalent: "")
         clearItem.target = self
         rootMenu.addItem(clearItem)
-
-        // 偏好设置
-        let settingsItem = NSMenuItem(title: "偏好设置", action: #selector(openSettings), keyEquivalent: ",")
-        settingsItem.target = self
-        rootMenu.addItem(settingsItem)
+       
 
         let mouseLocation = NSEvent.mouseLocation
         rootMenu.popUp(positioning: nil, at: mouseLocation, in: nil)

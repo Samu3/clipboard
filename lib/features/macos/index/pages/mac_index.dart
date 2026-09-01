@@ -633,14 +633,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
             active: activeFilter == 'image',
           ),
           const SizedBox(height: 4),
-          _buildMenuItem(
-            iconText: '□',
-            label: '文件',
-            filterKey: 'file',
-            ref: ref,
-            active: activeFilter == 'file',
-          ),
-          const SizedBox(height: 4),
+
           _buildMenuItem(
             iconText: '★',
             label: '收藏',
