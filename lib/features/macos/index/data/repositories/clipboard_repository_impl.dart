@@ -64,4 +64,9 @@ class ClipboardRepositoryImpl implements ClipboardRepository {
     final val = await localDs.getMaxSeq();
     return val ?? 0;
   }
+
+  @override
+  Future<void> clearAllEntries() async {
+    await localDs.deleteAll();
+  }
 }

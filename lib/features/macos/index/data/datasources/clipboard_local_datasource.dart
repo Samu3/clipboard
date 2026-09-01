@@ -141,4 +141,8 @@ class ClipboardLocalDatasource {
     final res = await db.rawQuery('SELECT MAX(seq) as max_seq FROM $tableName');
     return Sqflite.firstIntValue(res);
   }
+
+  Future<void> deleteAll() async {
+    await db.delete(tableName);
+  }
 }

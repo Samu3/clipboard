@@ -13,6 +13,9 @@ import 'package:clipboard/core/theme/theme_mode_notifier.dart';
 import 'package:clipboard/core/router/app_router.dart';
 import 'package:clipboard/core/utils/logger.dart';
 
+// 全局导航 key，用于在非 Widget 中访问路由
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clipboard/features/macos/index/pages/mac_index.dart';
+import 'package:clipboard/features/macos/settings/pages/settings_page.dart';
 
 part 'app_router.g.dart';
 
@@ -15,6 +16,11 @@ GoRouter goRouter(GoRouterRef ref) {
         path: '/',
         name: 'home',
         builder: (context, state) => const MacIndex(),
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        builder: (context, state) => const SettingsPage(),
       ),
     ],
   );

@@ -5,17 +5,48 @@ import FlutterMacOS
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     var mainWindow: MainFlutterWindow?
-    // 独立窗口代理，不和AppDelegate混在一起，解决selector报错
     private let windowDelegate = WindowCloseDelegate()
+    
+    private var clipboardMonitor: ClipboardMonitor?
+      private var clipboardMenuManager: ClipboardMenuManager?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         if let window = NSApplication.shared.windows.first as? MainFlutterWindow {
             self.mainWindow = window
             window.isReleasedWhenClosed = false
             window.delegate = windowDelegate
+
+            // 设置 ClipboardMenuManager
+            if let flutterVC = window.contentViewController as? FlutterViewController {
+                
+                let channel = FlutterMethodChannel(
+                  name: "com.clipboard/channel",
+                  binaryMessenger: flutterVC.engine.binaryMessenger
+                )
+
+                clipboardMonitor = ClipboardMonitor(channel: channel)
+                clipboardMonitor?.startMonitoring()
+                
+                clipboardMenuManager = ClipboardMenuManager(channel: channel,appDelegate: self)
+           
+            }
         }
+        
+        setupHotKey()
 
         setupStatusBarItem()
+    }
+
+  
+    private func setupHotKey() {
+        // 注册全局快捷键 Command + Shift + V
+        HotKeyManager.shared.registerHotKey { [weak self] in
+            self?.showClipboardMenu()
+        }
+    }
+
+    @objc private func showClipboardMenu() {
+        clipboardMenuManager?.showClipboardMenu()
     }
     
     private func setupStatusBarItem() {
@@ -48,8 +79,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc func openMainWindow() {
         guard let win = mainWindow else { return }
-        win.makeKeyAndOrderFront(nil)
+             // 1. 临时切换为 regular，允许显示窗口
+             NSApp.setActivationPolicy(.regular)
+             // 2. 显示窗口
+        
         NSApp.activate(ignoringOtherApps: true)
+
+             win.makeKeyAndOrderFront(nil)
+        
+        win.orderFrontRegardless() // 强制放到最顶层，无视窗口层级
+
+     
     }
     
     @objc func quitApp() {
@@ -65,6 +105,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 class WindowCloseDelegate: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         sender.orderOut(nil)
+        NSApp.setActivationPolicy(.accessory)
+
         return false
     }
 }

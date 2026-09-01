@@ -27,4 +27,7 @@ abstract class ClipboardRepository {
 
   /// 获取最大seq，用于本地生成新seq
   Future<int> getMaxSeq();
+
+  /// 清空所有记录
+  Future<void> clearAllEntries();
 }

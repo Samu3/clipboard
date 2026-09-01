@@ -215,4 +215,46 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
         filePath: filePath);
     await refresh();
   }
+
+  /// 获取最近的 N 条记录（用于快捷菜单）
+  Future<List<ClipboardEntry>> getRecentItems({int limit = 30}) async {
+    final repo = await ref.watch(clipboardRepositoryProvider.future);
+    return await repo.getActiveEntries(
+      filter: 'all',
+      keyword: '',
+      limit: limit,
+      offset: 0,
+    );
+  }
+
+  /// 复制指定条目到剪贴板
+  Future<void> copyToClipboard(String id) async {
+    final repo = await ref.watch(clipboardRepositoryProvider.future);
+    final entry = await repo.getEntryById(id);
+    if (entry != null) {
+      await copyClipboardEntry(entry);
+    }
+  }
+
+  /// 清空所有历史记录
+  Future<void> clearAll() async {
+    final repo = await ref.watch(clipboardRepositoryProvider.future);
+    final allEntries = await repo.getActiveEntries(
+      filter: 'all',
+      keyword: '',
+      limit: 10000,
+      offset: 0,
+    );
+
+    // 删除所有文件
+    for (final entry in allEntries) {
+      deleteFile(entry);
+    }
+
+    // 清空数据库
+    await repo.clearAllEntries();
+
+    // 刷新列表
+    await refresh();
+  }
 }

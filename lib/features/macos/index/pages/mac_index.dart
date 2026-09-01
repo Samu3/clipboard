@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipboard/features/macos/index/domain/entities/clipboard_entry.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_providers.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 
 class MacIndex extends ConsumerStatefulWidget {
@@ -595,6 +596,50 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           ),
 
           const Expanded(child: SizedBox()),
+
+          // 设置按钮
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () {
+              // TODO: 导航到设置页面
+              context.push('/settings');
+              debugPrint('打开设置页面');
+            },
+            child: Container(
+              width: 105.66,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: ShapeDecoration(
+                color: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 15.99,
+                    child: Icon(
+                      Icons.settings,
+                      size: 14,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '设置',
+                    style: TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 13,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w400,
+                      height: 1.50,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

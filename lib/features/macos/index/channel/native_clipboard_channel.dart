@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:clipboard/features/macos/index/providers/clipboard_list_notifier.dart';
+import 'package:clipboard/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 final nativeClipboardProvider = Provider<NativeClipboardChannel>((ref) {
   final channel = NativeClipboardChannel(ref);
@@ -31,6 +33,66 @@ class NativeClipboardChannel {
       final String type = data["type"];
       final Map payload = data["payload"];
       await _processClipItem(type, payload);
+    } else if (call.method == "getClipboardHistory") {
+      // 返回粘贴板历史给 native
+      return await _getClipboardHistory(call.arguments);
+    } else if (call.method == "pasteClipboardItem") {
+      // 粘贴指定条目
+      await _pasteClipboardItem(call.arguments);
+    } else if (call.method == "showMainWindow") {
+      // 显示主界面
+      _showMainWindow();
+    } else if (call.method == "clearHistory") {
+      // 清除历史
+      await _clearHistory();
+    } else if (call.method == "openSettings") {
+      // 打开设置
+      _openSettings();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getClipboardHistory(dynamic args) async {
+    final notifier = ref.read(clipboardListNotifierProvider.notifier);
+    final items = await notifier.getRecentItems(limit: 30);
+
+    return items
+        .map((item) => {
+              'id': item.id,
+              'type': item.type,
+              'title': item.title,
+              'preview': item.preview,
+              'filePath': item.filePath,
+            })
+        .toList();
+  }
+
+  Future<void> _pasteClipboardItem(dynamic args) async {
+    final Map data = args as Map;
+    final String id = data['id'];
+
+    final notifier = ref.read(clipboardListNotifierProvider.notifier);
+    await notifier.copyToClipboard(id);
+  }
+
+  void _showMainWindow() {
+    // 导航到主页面
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      context.go('/');
+    }
+  }
+
+  Future<void> _clearHistory() async {
+    final notifier = ref.read(clipboardListNotifierProvider.notifier);
+    await notifier.clearAll();
+    debugPrint("清除历史");
+  }
+
+  void _openSettings() {
+    // 导航到设置页面
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      context.push('/settings');
     }
   }
 
