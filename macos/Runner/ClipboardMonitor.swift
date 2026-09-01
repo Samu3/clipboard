@@ -13,6 +13,32 @@ class ClipboardMonitor {
     init(channel: FlutterMethodChannel) {
         self.channel = channel
         self.changeCount = pasteboard.changeCount
+        
+        self.setupMethodCall()
+        
+      
+    }
+    
+    func setupMethodCall(){
+        self.channel?.setMethodCallHandler { [weak self] call, result in
+                   if call.method == "copyImageToPasteboard" {
+                       guard let args = call.arguments as? [String:Any],
+                             let filePath = args["filePath"] as? String else {
+                           result(false)
+                           return
+                       }
+                       let url = URL(fileURLWithPath: filePath)
+                       guard let image = NSImage(contentsOf: url) else {
+                           result(false)
+                           return
+                       }
+                       let pasteboard = NSPasteboard.general
+                       pasteboard.clearContents()
+                       pasteboard.writeObjects([image])
+                       result(true)
+                   }
+                   // 保留你原有 onClipboardChange 逻辑
+               }
     }
 
     func startMonitoring() {
@@ -34,12 +60,12 @@ class ClipboardMonitor {
             print("📊 粘贴板 changeCount: \(oldCount) -> \(currentChangeCount)")
 
             // 【重点】优先判断文件！
-                   if let image = getImageFromPasteboard() {
+            if let fileURLs = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL], !fileURLs.isEmpty {
+               notifyFileChange(fileURLs)
+           }else  if let image = getImageFromPasteboard() {
                        notifyImageChange(image)
                    } else if let string = pasteboard.string(forType: .string) {
                        notifyTextChange(string)
-                   } else  if let fileURLs = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL], !fileURLs.isEmpty {
-                       notifyFileChange(fileURLs)
                    }
         }
     }
@@ -98,26 +124,27 @@ class ClipboardMonitor {
             let uuidName = "\(UUID().uuidString)-\(fileName)"
             let destUrl = tempDir.appendingPathComponent(uuidName)
             
-            // Mac沙盒关键：访问粘贴板文件安全书签
-            let accessGranted = srcUrl.startAccessingSecurityScopedResource()
-            defer {
-                if accessGranted {
-                    srcUrl.stopAccessingSecurityScopedResource()
-                }
-            }
-            
-            if !accessGranted {
-                print("⚠️ 文件无法获取安全访问权限: \(srcUrl.path)")
-                continue
-            }
-            
-            do {
-                try FileManager.default.copyItem(at: srcUrl, to: destUrl)
-                tempFilePaths.append(destUrl.path)
-                print("✅ 文件复制成功: \(destUrl.path)")
-            } catch {
-                print("❌ 文件复制失败 \(srcUrl.path): \(error)")
-            }
+            notifyTextChange(srcUrl.absoluteString)
+//            // Mac沙盒关键：访问粘贴板文件安全书签
+//            let accessGranted = srcUrl.startAccessingSecurityScopedResource()
+//            defer {
+//                if accessGranted {
+//                    srcUrl.stopAccessingSecurityScopedResource()
+//                }
+//            }
+//            
+//            if !accessGranted {
+//                print("⚠️ 文件无法获取安全访问权限: \(srcUrl.path)")
+//                continue
+//            }
+//            
+//            do {
+//                try FileManager.default.copyItem(at: srcUrl, to: destUrl)
+//                tempFilePaths.append(destUrl.path)
+//                print("✅ 文件复制成功: \(destUrl.path)")
+//            } catch {
+//                print("❌ 文件复制失败 \(srcUrl.path): \(error)")
+//            }
         }
         
         if tempFilePaths.isEmpty {

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:clipboard/features/macos/index/channel/native_clipboard_channel.dart';
+import 'package:flutter/services.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clipboard/features/macos/index/domain/entities/clipboard_entry.dart';
 import 'package:clipboard/features/macos/index/domain/repositories/clipboard_repository.dart';
@@ -152,6 +154,43 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
       //   if(await f.exists()) await f.delete();
       // }
     }
+  }
+
+  Future<void> copyClipboardEntry(ClipboardEntry entry) async {
+    try {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      bool copySuccess = false;
+
+      if (entry.type == "text") {
+        final text = entry.textContent ?? entry.title ?? "";
+        await Clipboard.setData(ClipboardData(text: text));
+        copySuccess = true;
+      } else if (entry.type == "image") {
+        // 图片复制：这里后续对接mac原生MethodChannel，先占位
+        print("图片复制，待原生MethodChannel实现");
+        copySuccess = true;
+        var filePath = entry.filePath;
+        var nativeChannel = ref.read(nativeClipboardProvider);
+        if (filePath != null) {
+          copySuccess = await nativeChannel.copyImageToPasteboard(filePath);
+        }
+      } else if (entry.type == "file") {
+        // 文件复制：后续对接mac原生MethodChannel，先占位
+        print("文件复制，待原生MethodChannel实现");
+        copySuccess = true;
+      }
+
+      if (copySuccess) {
+        // 更新updatedAt
+
+        final repo = await ref.watch(clipboardRepositoryProvider.future);
+
+        final updateEntry = entry.copyWith(createdAt: now);
+        await repo.updateEntry(updateEntry);
+
+        await refresh();
+      }
+    } catch (e) {}
   }
 
   /// 新增记录

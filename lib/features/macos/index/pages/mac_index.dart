@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:clipboard/core/utils/app_toast.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_list_notifier.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipboard/features/macos/index/domain/entities/clipboard_entry.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_providers.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:path_provider/path_provider.dart';
 
 class MacIndex extends ConsumerStatefulWidget {
@@ -182,9 +184,16 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                       final entry = entryList[index];
                       return item(context, ref, entry,
                           cacheDir: cacheDir, // 传给item
-                          onTapItem: () => onSelectEntry(entry),
+                          onTapItem: () {
+                            // Toast
+                            if (context.mounted) {
+                              AppToast.show(context, "已复制到剪贴板");
+                            }
+                            notifier.copyClipboardEntry(entry);
+                          },
                           onToggleFavorite: () =>
                               notifier.toggleFavorite(entry.id),
+                          onTapDetail: () => onSelectEntry(entry),
                           onDelete: () async {
                             final confirm = await showDialog<bool>(
                               context: context,
@@ -329,6 +338,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
 
   Widget item(BuildContext context, WidgetRef ref, ClipboardEntry entry,
       {required Directory cacheDir, // 新增
+      required VoidCallback onTapDetail,
       required VoidCallback onTapItem,
       required VoidCallback onToggleFavorite,
       required VoidCallback onDelete}) {
@@ -422,6 +432,22 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                       borderRadius: BorderRadius.circular(2)),
                 ),
               ),
+
+            // ====== 新增【详情按钮】眼睛图标 ======
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                onPressed: onTapDetail,
+                icon: const Icon(
+                  Icons.remove_red_eye_outlined,
+                  size: 14,
+                  color: Color(0xFF9CA3AF),
+                ),
+              ),
+            ),
 
             // ====== 新增删除按钮 ======
             const SizedBox(width: 8),

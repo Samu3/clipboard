@@ -49,7 +49,18 @@ class ClipboardLocalDatasource {
   }
 
   Future<void> insert(Map<String, dynamic> map) async {
-    await db.insert(tableName, map);
+    final String md5Val = map['hash']; // hash字段 = 内容MD5
+    // 根据md5查询是否存在
+    final list = await db.query(
+      tableName,
+      where: 'hash = ? AND deleted = 0', // 只查询未删除记录
+      whereArgs: [md5Val],
+    );
+
+    if (list.isEmpty) {
+      // 找到相同MD5的记录：更新updatedAt，置顶
+      await db.insert(tableName, map);
+    }
   }
 
   Future<void> update(Map<String, dynamic> map) async {

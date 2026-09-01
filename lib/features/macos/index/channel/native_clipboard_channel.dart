@@ -34,6 +34,25 @@ class NativeClipboardChannel {
     }
   }
 
+  // ====== 新增：复制图片到Mac系统剪贴板 ======
+  Future<bool> copyImageToPasteboard(String imageFilePath) async {
+    try {
+      final file = File(imageFilePath);
+      if (!await file.exists()) {
+        debugPrint("copyImageToPasteboard: 文件不存在 $imageFilePath");
+        return false;
+      }
+      final result = await _channel.invokeMethod<bool>(
+        "copyImageToPasteboard",
+        {"filePath": imageFilePath},
+      );
+      return result ?? false;
+    } catch (e) {
+      debugPrint("copyImageToPasteboard error: $e");
+      return false;
+    }
+  }
+
   Future<void> _processClipItem(String type, Map payload) async {
     final notifier = ref.read(clipboardListNotifierProvider.notifier);
     String id;
@@ -83,7 +102,6 @@ class NativeClipboardChannel {
         preview = "[图片]";
         sizeBytes = imgBytes.length;
 
-        await saveImageCache(imgBytes, hash);
         await notifier.addEntry(
           id: id,
           type: "image",
@@ -136,10 +154,5 @@ class NativeClipboardChannel {
         );
         break;
     }
-  }
-
-  Future<void> saveImageCache(List<int> imgBytes, String hash) async {
-    // 缓存图片到应用支持目录，Dart读取显示
-    // 可使用 path_provider 获取ApplicationSupportDirectory
   }
 }

@@ -62,6 +62,7 @@ dependencies:
   intl: ^0.19.0
   # Local Storage
   shared_preferences: ^2.2.2
+  fluttertoast: 8.2.2
 
 
   # The following adds the Cupertino Icons font to your application.
