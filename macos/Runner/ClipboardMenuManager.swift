@@ -37,23 +37,32 @@ class ClipboardMenuManager {
         let rootMenu = NSMenu()
         rootMenu.autoenablesItems = false
         
-        // 分组1：1~10
-        let page1Item = NSMenuItem(title: "1-10", action: nil, keyEquivalent: "")
-        page1Item.submenu = buildSubMenu(items: items, range: 0..<10)
-        rootMenu.addItem(page1Item)
-        
-        // 分组2：11~20
-        let page2Item = NSMenuItem(title: "11-20", action: nil, keyEquivalent: "")
-        page2Item.submenu = buildSubMenu(items: items, range: 10..<min(20, items.count))
-        rootMenu.addItem(page2Item)
-        
-        // 分组3：21~30
-        if items.count > 20 {
-            let page3Item = NSMenuItem(title: "21-30", action: nil, keyEquivalent: "")
-            page3Item.submenu = buildSubMenu(items: items, range: 20..<min(30, items.count))
-            rootMenu.addItem(page3Item)
-        }
+        if(items.count > 0){
+            // 分组1：1~10
+            let page1Item = NSMenuItem(title: "1-10", action: nil, keyEquivalent: "")
+            page1Item.submenu = buildSubMenu(items: items, range: 0..<10)
+            rootMenu.addItem(page1Item)
+            
+            if(items.count > 10){
+                
+                // 分组2：11~20
+                let page2Item = NSMenuItem(title: "11-20", action: nil, keyEquivalent: "")
+                page2Item.submenu = buildSubMenu(items: items, range: 10..<min(20, items.count))
+                rootMenu.addItem(page2Item)
+            }
+            
+            // 分组3：21~30
+            if items.count > 20 {
+                let page3Item = NSMenuItem(title: "21-30", action: nil, keyEquivalent: "")
+                page3Item.submenu = buildSubMenu(items: items, range: 20..<min(30, items.count))
+                rootMenu.addItem(page3Item)
+            }
 
+        }
+      
+     
+        
+     
         rootMenu.addItem(NSMenuItem.separator())
 
         // 显示主界面：直接调用 AppDelegate.showMainWindow
@@ -135,7 +144,7 @@ class ClipboardMenuManager {
                 
 
         // 延迟模拟粘贴
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             self.simulatePaste()
         }
     }
@@ -143,30 +152,36 @@ class ClipboardMenuManager {
     // 模拟 Cmd+V
     private func simulatePaste() {
         let src = CGEventSource(stateID: .combinedSessionState)
+        let cmdKey: CGKeyCode = 0x37
+        let vKey: CGKeyCode = 0x09
 
-        // Command 键码: 0x37, V 键码: 0x09
-        guard let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: true),
-              let vDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true),
-              let vUp = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: false),
-              let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: false) else {
+        guard let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: cmdKey, keyDown: true),
+              let vDown = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: true),
+              let vUp = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: false),
+              let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: cmdKey, keyDown: false) else {
             print("❌ 无法创建键盘事件")
             return
         }
 
-        // 设置 Command 修饰键
+        // ✅ 全部事件统一带上 maskCommand
+        cmdDown.flags = .maskCommand
         vDown.flags = .maskCommand
         vUp.flags = .maskCommand
+        // cmdUp 抬起command，清除修饰标记
+        cmdUp.flags = []
 
-        // 按顺序发送事件
+        // 分步异步发送，不阻塞主线程，不要usleep
         cmdDown.post(tap: .cghidEventTap)
-        usleep(1000) // 1ms 延迟
-        vDown.post(tap: .cghidEventTap)
-        usleep(1000)
-        vUp.post(tap: .cghidEventTap)
-        usleep(1000)
-        cmdUp.post(tap: .cghidEventTap)
-
-        print("✅ 已模拟 Cmd+V 按键")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
+            vDown.post(tap: .cghidEventTap)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
+                vUp.post(tap: .cghidEventTap)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
+                    cmdUp.post(tap: .cghidEventTap)
+                    print("✅ 已模拟 Cmd+V 按键")
+                }
+            }
+        }
     }
 
     // ✅ 直接调用 AppDelegate 的方法，不再走channel

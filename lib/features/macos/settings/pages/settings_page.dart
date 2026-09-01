@@ -50,13 +50,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      _buildSwitchItem(
-                        label: '声音提示',
-                        value: true,
-                        onChanged: (value) {
-                          // TODO: 实现声音提示
-                        },
-                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -153,7 +146,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(6),

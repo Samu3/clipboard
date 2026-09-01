@@ -4,6 +4,7 @@ import 'package:clipboard/core/utils/app_toast.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_list_notifier.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipboard/features/macos/index/domain/entities/clipboard_entry.dart';
@@ -229,65 +230,117 @@ class _MacIndexState extends ConsumerState<MacIndex> {
   // ========== 详情页面 ==========
   Widget buildDetailPage(
       ClipboardEntry entry, VoidCallback onClose, Directory cacheDir) {
+    // ✅ 在 StatefulBuilder 外部创建 controller，避免重建时丢失内容
+    final editController = TextEditingController(text: entry.textContent ?? "");
+
     return Container(
       color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: onClose,
-                  child: const Icon(Icons.arrow_back_ios_new, size: 16),
-                ),
-                const SizedBox(width: 8),
-                Text(entry.type == "image"
-                    ? "图片详情"
-                    : entry.type == "file"
-                        ? "文件详情"
-                        : "文本详情"),
-                const Spacer(),
-                if (entry.type == "file")
-                  ElevatedButton(
-                      onPressed: () async {
-                        final List<String> tempPaths =
-                            (entry.textContent ?? "").split(",").toList();
-                        final result =
-                            await FilePicker.platform.getDirectoryPath();
-                        if (result == null) return;
-                        final saveDir = Directory(result!);
-                        for (final srcPath in tempPaths) {
-                          final srcFile = File(srcPath);
-                          if (!await srcFile.exists()) continue;
-                          final targetFile = File(
-                              "${saveDir.path}/${srcFile.path.split("/").last}");
-                          await srcFile.copy(targetFile.path);
-                        }
+      child: StatefulBuilder(
+        builder: (context, setState) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        editController.dispose(); // 关闭时释放
+                        onClose();
                       },
-                      child: const Text("下载"))
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              // 传入cacheDir
-              child: buildDetailContent(entry, cacheDir),
-            ),
-          )
-        ],
+                      child: const Icon(Icons.arrow_back_ios_new, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(entry.type == "image"
+                        ? "图片详情"
+                        : entry.type == "file"
+                            ? "文件详情"
+                            : "文本详情"),
+                    const Spacer(),
+                    // ===== 右上角按钮区域 =====
+                    if (entry.type == "text")
+                      ElevatedButton(
+                        onPressed: () async {
+                          // ✅ 点击对勾：复制编辑后的文本到系统剪贴板
+                          final newText = editController.text;
+                          await Clipboard.setData(ClipboardData(text: newText));
+                          onClose();
+                          if (context.mounted) {
+                            AppToast.show(context, "已复制到剪贴板");
+                          }
+                        },
+                        child: const Text("更新"),
+                      ),
+
+                    if (entry.type == "image")
+                      ElevatedButton(
+                        onPressed: () async {
+                          // 图片保存：选择文件夹
+                          final selectedDirPath =
+                              await FilePicker.platform.getDirectoryPath();
+                          if (selectedDirPath == null) return;
+                          final imgFile = File(entry.filePath!);
+                          if (!await imgFile.exists()) return;
+                          final fileName = imgFile.path.split("/").last;
+                          final targetFile = File("$selectedDirPath/$fileName");
+                          await imgFile.copy(targetFile.path);
+                        },
+                        child: const Text("保存图片"),
+                      ),
+                    if (entry.type == "file")
+                      ElevatedButton(
+                          onPressed: () async {
+                            final List<String> tempPaths =
+                                (entry.textContent ?? "").split(",").toList();
+                            final result =
+                                await FilePicker.platform.getDirectoryPath();
+                            if (result == null) return;
+                            final saveDir = Directory(result!);
+                            for (final srcPath in tempPaths) {
+                              final srcFile = File(srcPath);
+                              if (!await srcFile.exists()) continue;
+                              final targetFile = File(
+                                  "${saveDir.path}/${srcFile.path.split("/").last}");
+                              await srcFile.copy(targetFile.path);
+                            }
+                          },
+                          child: const Text("下载"))
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: buildDetailContent(entry, cacheDir, editController),
+                ),
+              )
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget buildDetailContent(ClipboardEntry entry, Directory cacheDir) {
+  Widget buildDetailContent(
+    ClipboardEntry entry,
+    Directory cacheDir,
+    TextEditingController editController,
+  ) {
     switch (entry.type) {
       case "text":
-        return SelectableText(
-          entry.textContent ?? "",
+        // 直接多行输入框，无需切换编辑状态，打开页面即可编辑
+        return TextField(
+          controller: editController,
+          maxLines: null,
+          minLines: 1,
+          expands: false,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: "编辑文本内容",
+          ),
           style: const TextStyle(
             fontSize: 13,
             height: 1.5,
@@ -295,7 +348,6 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           ),
         );
       case "image":
-        // ✅ 同步获取路径，不再FutureBuilder
         final imgPath = entry.filePath ?? "";
         debugPrint(imgPath);
         return InteractiveViewer(
@@ -423,16 +475,6 @@ class _MacIndexState extends ConsumerState<MacIndex> {
               ),
             ),
             const SizedBox(width: 8),
-            if (entry.favorite == 1)
-              Container(
-                width: 3.99,
-                height: 3.99,
-                decoration: ShapeDecoration(
-                  color: Color(0xFF4F6BFF),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
 
             // ====== 新增【详情按钮】眼睛图标 ======
             const SizedBox(width: 8),
@@ -448,6 +490,18 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                   color: Color(0xFF9CA3AF),
                 ),
               ),
+            ),
+
+            // ========== 新增收藏按钮（详情 和 删除中间） ==========
+            IconButton(
+              onPressed: onToggleFavorite,
+              icon: Icon(
+                entry.favorite == 1 ? Icons.star : Icons.star_border,
+                size: 18,
+                color: entry.favorite == 1 ? Colors.amber : Colors.grey,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             ),
 
             // ====== 新增删除按钮 ======
