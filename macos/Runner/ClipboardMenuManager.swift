@@ -127,48 +127,46 @@ class ClipboardMenuManager {
 
     @objc private func pasteClipboardItem(_ sender: NSMenuItem) {
         guard let obj = sender.representedObject as? [String:Any],
-              let id = obj["id"] as? String,
-              let type = obj["type"] as? String else { return }
-
-        if type == "image" {
-            // 图片：Swift直接读取文件写入NSPasteboard
-            if let imgPath = obj["imagePath"] as? String {
-                let image = NSImage(contentsOfFile: imgPath)
-                let pb = NSPasteboard.general
-                pb.clearContents()
-                pb.writeObjects([image!])
-
-            }
-        }else{
-            
-            if let textContent = obj["title"] as? String{
-                NSPasteboard.general.setString(textContent, forType: .string)
-
-            }
-
-            
+              let id = obj["id"] as? String else{
+            return
         }
-        
-        // 重点：延迟发送快捷键，等待粘贴板写入完成
-          DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-              self.simulatePaste()
-          }
-            
 
-     
+        self.channel?.invokeMethod("pasteClipboardItem", arguments: ["id":id])
+                
+
+        // 延迟模拟粘贴
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.simulatePaste()
+        }
     }
     
-    // 新增：模拟 Cmd+V
+    // 模拟 Cmd+V
     private func simulatePaste() {
-        let src = CGEventSource(stateID: .hidSystemState)
-        guard let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown:true),
-              let vDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown:true),
-              let vUp = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown:false),
-              let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown:false) else { return }
-        cmdDown.flags = .maskCommand
+        let src = CGEventSource(stateID: .combinedSessionState)
+
+        // Command 键码: 0x37, V 键码: 0x09
+        guard let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: true),
+              let vDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true),
+              let vUp = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: false),
+              let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: false) else {
+            print("❌ 无法创建键盘事件")
+            return
+        }
+
+        // 设置 Command 修饰键
         vDown.flags = .maskCommand
-        let events = [cmdDown, vDown, vUp, cmdUp]
-        events.forEach{ $0.post(tap: .cghidEventTap) }
+        vUp.flags = .maskCommand
+
+        // 按顺序发送事件
+        cmdDown.post(tap: .cghidEventTap)
+        usleep(1000) // 1ms 延迟
+        vDown.post(tap: .cghidEventTap)
+        usleep(1000)
+        vUp.post(tap: .cghidEventTap)
+        usleep(1000)
+        cmdUp.post(tap: .cghidEventTap)
+
+        print("✅ 已模拟 Cmd+V 按键")
     }
 
     // ✅ 直接调用 AppDelegate 的方法，不再走channel

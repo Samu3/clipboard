@@ -9,7 +9,7 @@ class ClipboardMonitor {
     private let pasteboard = NSPasteboard.general
     // 临时目录（给文件类型使用）
     private let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
-    private var skipNextPasteboardChange = false
+    public var skipNextPasteboardChange = false
 
     init(channel: FlutterMethodChannel) {
         self.channel = channel
