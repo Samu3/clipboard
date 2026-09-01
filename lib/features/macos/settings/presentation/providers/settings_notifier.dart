@@ -1,3 +1,4 @@
+import 'package:clipboard/features/macos/settings/channel/native_setting_channel.dart';
 import 'package:clipboard/features/macos/settings/data/providers/settings_providers.dart';
 import 'package:clipboard/features/macos/settings/domain/entities/settings_entity.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -7,8 +8,6 @@ part 'settings_notifier.g.dart';
 
 @riverpod
 class SettingsNotifier extends _$SettingsNotifier {
-  static const MethodChannel _channel = MethodChannel('com.clipboard/channel');
-
   @override
   Future<SettingsEntity> build() async {
     final repository = ref.watch(settingsRepositoryProvider);
@@ -16,7 +15,8 @@ class SettingsNotifier extends _$SettingsNotifier {
   }
 
   Future<void> startHotKey() async {
-    await _channel.invokeMethod('startRecord');
+    var channel = ref.read(nativeSettingProvider);
+    await channel.startHotKey();
   }
 
   /// 更新快捷键
@@ -24,15 +24,16 @@ class SettingsNotifier extends _$SettingsNotifier {
       String hotKey, int modifierKeyCode, int mainKeyCode) async {
     final repository = ref.read(settingsRepositoryProvider);
     await repository.updateHotKey(hotKey, modifierKeyCode, mainKeyCode);
-
-    // 通知 native 端更新快捷键
-    await _channel.invokeMethod('updateHotKey', {
-      'modifierKeyCode': modifierKeyCode,
-      'mainKeyCode': mainKeyCode,
-    });
+    var channel = ref.read(nativeSettingProvider);
+    await channel.updateHotKey(hotKey, modifierKeyCode, mainKeyCode);
 
     // 刷新状态
     ref.invalidateSelf();
+  }
+
+  Future<void> stopHotKey() async {
+    var channel = ref.read(nativeSettingProvider);
+    await channel.stopHotKey();
   }
 
   /// 更新开机自启动
@@ -42,7 +43,8 @@ class SettingsNotifier extends _$SettingsNotifier {
 
     // 调用原生方法设置开机自启动
     try {
-      await _channel.invokeMethod('setLaunchAtLogin', {'enabled': enabled});
+      var channel = ref.read(nativeSettingProvider);
+      await channel.updateAutoStart(enabled);
     } catch (e) {
       print('设置开机自启动失败: $e');
     }

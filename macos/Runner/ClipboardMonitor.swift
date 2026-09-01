@@ -11,7 +11,6 @@ class ClipboardMonitor {
     private let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
     public var skipNextPasteboardChange = false
     
-    private var hotkeyRecorder: HotkeyRecorder = HotkeyRecorder.shared
 
 
     init(channel: FlutterMethodChannel) {
@@ -19,7 +18,6 @@ class ClipboardMonitor {
         self.changeCount = pasteboard.changeCount
 
         // 设置 HotkeyRecorder 的 channel
-        self.hotkeyRecorder.channel = channel
 
         self.setupMethodCall()
 
@@ -30,43 +28,27 @@ class ClipboardMonitor {
         self.channel?.setMethodCallHandler { [weak self] call, result in
             
             guard let `self` = self else { return }
-                   if call.method == "copyImageToPasteboard" {
-                       guard let args = call.arguments as? [String:Any],
-                             let filePath = args["filePath"] as? String else {
-                           result(false)
-                           return
-                       }
-                       let url = URL(fileURLWithPath: filePath)
-                       guard let image = NSImage(contentsOf: url) else {
-                           result(false)
-                           return
-                       }
-                       let pasteboard = NSPasteboard.general
-                       pasteboard.clearContents()
-                       pasteboard.writeObjects([image])
-                       result(true)
-                       
-                       self.skipNextPasteboardChange = true
-
-                   }else if call.method == "startRecord"{
-                       hotkeyRecorder.startRecord()
-
-                       
-                   }else if call.method == "stopRecord"{
-                       hotkeyRecorder.stopRecord()
-                   }else if call.method == "updateHotKey"{
-                       
-                       
-                       guard let args = call.arguments as? [String:Any],
-                             let modifierKeyCode = args["modifierKeyCode"] as? UInt32, let mainKeyCode = args["mainKeyCode"] as? UInt32 else {
-                           result(false)
-                           return
-                       }
-                       
-                       HotKeyManager.shared.updateHotKey(keyCode: mainKeyCode, modifiers: modifierKeyCode)
-                       
-                   }
-               }
+            if call.method == "copyImageToPasteboard" {
+                guard let args = call.arguments as? [String:Any],
+                      let filePath = args["filePath"] as? String else {
+                    result(false)
+                    return
+                }
+                let url = URL(fileURLWithPath: filePath)
+                guard let image = NSImage(contentsOf: url) else {
+                    result(false)
+                    return
+                }
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.writeObjects([image])
+                result(true)
+                
+                self.skipNextPasteboardChange = true
+                
+            }
+              
+        }
     }
 
     func startMonitoring() {

@@ -9,51 +9,43 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-final nativeClipboardProvider = Provider<NativeClipboardChannel>((ref) {
-  final channel = NativeClipboardChannel(ref);
+final nativeSettingProvider = Provider<NativeSettingChannel>((ref) {
+  final channel = NativeSettingChannel(ref);
   // 保持 provider 存活，防止被垃圾回收导致 MethodCallHandler 失效
   ref.keepAlive();
   return channel;
 });
 
-class NativeClipboardChannel {
+class NativeSettingChannel {
   final Ref ref;
   late MethodChannel _channel;
   String? _lastHash;
 
-  NativeClipboardChannel(this.ref) {
-    _channel = const MethodChannel("com.clipboard/channel");
+  // 快捷键录制流控制器
+  final _hotkeyStreamController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get hotkeyStream =>
+      _hotkeyStreamController.stream;
+
+  NativeSettingChannel(this.ref) {
+    _channel = const MethodChannel("com.clipboard.setting/channel");
     _channel.setMethodCallHandler(_handleMethod);
   }
 
   Future<dynamic> _handleMethod(MethodCall call) async {
     debugPrint("🔔 收到 Native 调用: ${call.method}");
-    if (call.method == "onClipboardChange") {
-      debugPrint("📋 粘贴板内容变化: ${call.arguments}");
-      final data = call.arguments as Map;
-      final String type = data["type"];
-      final Map payload = data["payload"];
-      await _processClipItem(type, payload);
-    } else if (call.method == "getClipboardHistory") {
-      // 返回粘贴板历史给 native
-      return await _getClipboardHistory(call.arguments);
-    } else if (call.method == "pasteClipboardItem") {
-      // 粘贴指定条目
-      await _pasteClipboardItem(call.arguments);
-    } else if (call.method == "showMainWindow") {
-      // 显示主界面
-      _showMainWindow();
-    } else if (call.method == "clearHistory") {
-      // 清除历史
-      await _clearHistory();
-    } else if (call.method == "openSettings") {
-      // 打开设置
-      _openSettings();
+    if (call.method == "onHotkeyCaptured") {
+      // 快捷键录制回调
+      _handleHotkeyCaptured(call.arguments);
     }
   }
 
   Future<void> startHotKey() async {
     await _channel.invokeMethod('startHotKey');
+  }
+
+  Future<void> stopHotKey() async {
+    await _channel.invokeMethod('stopHotKey');
   }
 
   /// 更新快捷键
@@ -66,6 +58,23 @@ class NativeClipboardChannel {
     });
 
     // 刷新状态
+  }
+
+  void _handleHotkeyCaptured(dynamic args) {
+    final Map data = args as Map;
+    final int keyCode = data['keyCode'];
+    final int modifiers = data['modifiers'];
+    final String displayName = data['displayName'];
+
+    debugPrint(
+        "🎹 捕获到快捷键: $displayName, keyCode: $keyCode, modifiers: $modifiers");
+
+    // 通过流通知设置页面
+    _hotkeyStreamController.add({
+      'keyCode': keyCode,
+      'modifiers': modifiers,
+      'displayName': displayName,
+    });
   }
 
   /// 更新开机自启动

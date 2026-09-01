@@ -9,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private var clipboardMonitor: ClipboardMonitor?
       private var clipboardMenuManager: ClipboardMenuManager?
+    private var hotkeyRecorder: HotkeyRecorder = HotkeyRecorder.shared
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         if let window = NSApplication.shared.windows.first as? MainFlutterWindow {
@@ -23,14 +24,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                   name: "com.clipboard/channel",
                   binaryMessenger: flutterVC.engine.binaryMessenger
                 )
+                
+                let settingChannel = FlutterMethodChannel(
+                  name: "com.clipboard.setting/channel",
+                  binaryMessenger: flutterVC.engine.binaryMessenger
+                )
+
 
                 clipboardMonitor = ClipboardMonitor(channel: channel)
                 clipboardMonitor?.startMonitoring()
 
                 clipboardMenuManager = ClipboardMenuManager(channel: channel,appDelegate: self)
+                
+                hotkeyRecorder.channel = settingChannel
+
 
                 // 设置开机自启动的 Method Channel 处理
-                setupLaunchAtLoginHandler(channel: channel)
+                setupLaunchAtLoginHandler(channel: settingChannel)
             }
         }
         
@@ -109,8 +119,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 result(FlutterError(code: "UNAVAILABLE", message: "AppDelegate is unavailable", details: nil))
                 return
             }
-
+  
             switch call.method {
+                
+            case "startHotKey":
+                hotkeyRecorder.startRecord()
+
+                break
+                
+            case "updateHotKey":
+                guard let args = call.arguments as? [String:Any],
+                      let modifierKeyCode = args["modifierKeyCode"] as? UInt32, let mainKeyCode = args["mainKeyCode"] as? UInt32 else {
+                    result(false)
+                    return
+                }
+                
+                HotKeyManager.shared.updateHotKey(keyCode: mainKeyCode, modifiers: modifierKeyCode)
+                result(true)
+                break
+                
+            case "stopRecord":
+                hotkeyRecorder.stopRecord()
+
+                break
             case "setLaunchAtLogin":
                 guard let args = call.arguments as? [String: Any],
                       let enabled = args["enabled"] as? Bool else {

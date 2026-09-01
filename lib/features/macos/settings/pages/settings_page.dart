@@ -1,3 +1,4 @@
+import 'package:clipboard/features/macos/settings/channel/native_setting_channel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipboard/features/macos/settings/presentation/providers/settings_notifier.dart';
@@ -259,34 +260,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _showHotKeyDialog(BuildContext context) {
-    setState(() {
-      _capturedHotkey = null;
-      _capturedKeyCode = null;
-      _capturedModifiers = null;
-    });
+    // 外层变量初始化
+    String? _capturedHotkey;
+    int? _capturedKeyCode;
+    int? _capturedModifiers;
 
-    // 开始录制快捷键
     final notifier = ref.read(settingsNotifierProvider.notifier);
-    notifier.startHotKey();
+    final nativeChannel = ref.read(nativeSettingProvider);
 
-    // 监听快捷键录制
-    final nativeChannel = ref.read(nativeClipboardProvider);
-    _hotkeySubscription?.cancel();
-    _hotkeySubscription = nativeChannel.hotkeyStream.listen((data) {
-      setState(() {
-        _capturedHotkey = data['displayName'] as String;
-        _capturedKeyCode = data['keyCode'] as int;
-        _capturedModifiers = data['modifiers'] as int;
-      });
-    });
+    // 启动原生录制
+    notifier.startHotKey();
+    StreamSubscription<Map<String, dynamic>>? hotkeySub;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
-          // 监听捕获状态
-          _hotkeySubscription = nativeChannel.hotkeyStream.listen((data) {
+          // ✅ 在dialog内部订阅Stream，用setDialogState刷新弹窗UI
+          hotkeySub = nativeChannel.hotkeyStream.listen((data) {
             setDialogState(() {
               _capturedHotkey = data['displayName'] as String;
               _capturedKeyCode = data['keyCode'] as int;
@@ -321,13 +313,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ),
                   )
                 else
-                  const CircularProgressIndicator(),
+                  const Text("等待按下快捷键..."),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () {
-                  _hotkeySubscription?.cancel();
+                  hotkeySub?.cancel();
+                  notifier.stopHotKey();
                   Navigator.of(dialogContext).pop();
                 },
                 child: const Text('取消'),
@@ -335,16 +328,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               TextButton(
                 onPressed: _capturedHotkey != null
                     ? () async {
-                        // 保存快捷键
                         await notifier.updateHotKey(
                           _capturedHotkey!,
                           _capturedModifiers!,
                           _capturedKeyCode!,
                         );
-                        _hotkeySubscription?.cancel();
-                        if (dialogContext.mounted) {
-                          Navigator.of(dialogContext).pop();
-                        }
+                        hotkeySub?.cancel();
+                        notifier.stopHotKey();
+                        Navigator.of(dialogContext).pop();
                       }
                     : null,
                 child: const Text('确定'),
@@ -353,6 +344,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           );
         },
       ),
-    );
+    ).then((_) {
+      // 兜底：弹窗无论怎么关闭，都取消订阅 + 停止原生监听（防止内存泄漏）
+      hotkeySub?.cancel();
+      notifier.stopHotKey();
+    });
   }
 }
