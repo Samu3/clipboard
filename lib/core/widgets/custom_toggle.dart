@@ -11,7 +11,7 @@ class CustomToggle extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    this.size = 28,
+    this.size = 20,
     this.activeColor = const Color(0xFF4F6BFF),
     this.inactiveColor = const Color(0xFFD1D5DB),
   });
@@ -29,7 +29,8 @@ class CustomToggle extends StatelessWidget {
           color: value ? activeColor : inactiveColor,
         ),
         child: Stack(
-          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          alignment: Alignment.center, // ✅ Stack内部居中
           children: [
             AnimatedPositioned(
               duration: const Duration(milliseconds: 200),

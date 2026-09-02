@@ -1,3 +1,4 @@
+import 'package:clipboard/core/widgets/custom_toggle.dart';
 import 'package:clipboard/features/macos/settings/channel/native_setting_channel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,7 +72,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                 .updateAutoStart(value);
                           },
                         ),
-                        const SizedBox(height: 12),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -210,7 +210,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     required ValueChanged<bool> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -221,7 +221,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               color: Color(0xFF1A1D23),
             ),
           ),
-          Switch(
+          CustomToggle(
             value: value,
             onChanged: onChanged,
             activeColor: const Color(0xFF4F6BFF),

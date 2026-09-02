@@ -31,6 +31,8 @@ class _MacIndexState extends ConsumerState<MacIndex> {
     super.dispose();
   }
 
+  
+
   @override
   Widget build(BuildContext context) {
     final filterType = ref.watch(clipboardFilterProvider);
