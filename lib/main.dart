@@ -1,5 +1,7 @@
 import 'package:clipboard/features/macos/index/channel/native_clipboard_channel.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_listener_service.dart';
+import 'package:clipboard/features/macos/settings/channel/native_setting_channel.dart';
+import 'package:clipboard/features/macos/settings/data/providers/settings_providers.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,11 +50,46 @@ void main() async {
   );
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // 初始化快捷键
+
+    Future.delayed(Duration(seconds: 1)).then((v) {
+      _initializeHotkey();
+    });
+  }
+
+  Future<void> _initializeHotkey() async {
+    try {
+      // 读取保存的设置
+      final settingsRepository = ref.read(settingsRepositoryProvider);
+      final settings = await settingsRepository.getSettings();
+
+      // 将快捷键发送给原生端
+      final channel = ref.read(nativeSettingProvider);
+      await channel.updateHotKey(
+        settings.hotKey,
+        settings.modifierKeyCode,
+        settings.mainKeyCode,
+      );
+
+      logger.i('快捷键初始化完成: ${settings.hotKey}', category: LogCategory.common);
+    } catch (e) {
+      logger.e('快捷键初始化失败: $e', category: LogCategory.common);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // 设置 AppChannel 的 ref，让它可以访问 providers
     AppChannel().setRef(ref);
     // 使用 watch 保持 NativeClipboardChannel 实例存活，确保 MethodCallHandler 能接收回调

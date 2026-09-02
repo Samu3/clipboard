@@ -16,6 +16,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.mainWindow = window
             window.isReleasedWhenClosed = false
             window.delegate = windowDelegate
+            
+            setupHotKey()
 
             // 设置 ClipboardMenuManager
             if let flutterVC = window.contentViewController as? FlutterViewController {
@@ -44,7 +46,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         
-        setupHotKey()
 
         setupStatusBarItem()
     }
@@ -127,6 +128,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 break
                 
+            case "stopHotKey":
+                hotkeyRecorder.stopRecord()
+
+                break
+                
             case "updateHotKey":
                 guard let args = call.arguments as? [String:Any],
                       let modifierKeyCode = args["modifierKeyCode"] as? UInt32, let mainKeyCode = args["mainKeyCode"] as? UInt32 else {
@@ -138,10 +144,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 result(true)
                 break
                 
-            case "stopRecord":
-                hotkeyRecorder.stopRecord()
-
-                break
+         
             case "setLaunchAtLogin":
                 guard let args = call.arguments as? [String: Any],
                       let enabled = args["enabled"] as? Bool else {

@@ -16,10 +16,18 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
   @override
   Future<SettingsEntity> getSettings() async {
+    // 默认快捷键：Command+Shift+V
+    // Command: 1 << 8 = 256 (0x100)
+    // Shift: 1 << 9 = 512 (0x200)
+    // 组合: 256 + 512 = 768 (0x300)
+    // V 键: 0x09
+    const int defaultModifiers = 768; // Command + Shift
+    const int defaultKeyCode = 0x09; // V 键
+
     return SettingsEntity(
       hotKey: prefs.getString(_keyHotKey) ?? 'Command+Shift+V',
-      modifierKeyCode: prefs.getInt(_keyModifierKeyCode) ?? 0x37,
-      mainKeyCode: prefs.getInt(_keyMainKeyCode) ?? 0x09,
+      modifierKeyCode: prefs.getInt(_keyModifierKeyCode) ?? defaultModifiers,
+      mainKeyCode: prefs.getInt(_keyMainKeyCode) ?? defaultKeyCode,
       autoStart: prefs.getBool(_keyAutoStart) ?? false,
       soundEnabled: prefs.getBool(_keySoundEnabled) ?? true,
       historyLimit: prefs.getInt(_keyHistoryLimit) ?? 30,

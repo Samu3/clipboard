@@ -52,32 +52,6 @@ class NativeClipboardChannel {
     }
   }
 
-  Future<void> startHotKey() async {
-    await _channel.invokeMethod('startHotKey');
-  }
-
-  /// 更新快捷键
-  Future<void> updateHotKey(
-      String hotKey, int modifierKeyCode, int mainKeyCode) async {
-    // 通知 native 端更新快捷键
-    await _channel.invokeMethod('updateHotKey', {
-      'modifierKeyCode': modifierKeyCode,
-      'mainKeyCode': mainKeyCode,
-    });
-
-    // 刷新状态
-  }
-
-  /// 更新开机自启动
-  Future<void> updateAutoStart(bool enabled) async {
-    // 调用原生方法设置开机自启动
-    try {
-      await _channel.invokeMethod('setLaunchAtLogin', {'enabled': enabled});
-    } catch (e) {
-      print('设置开机自启动失败: $e');
-    }
-  }
-
   Future<List<Map<String, dynamic>>> _getClipboardHistory(dynamic args) async {
     final notifier = ref.read(clipboardListNotifierProvider.notifier);
     final items = await notifier.getRecentItems(limit: 30);
