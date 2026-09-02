@@ -4,60 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/locale.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../api/locale_api_service.dart';
 
 class LocaleDatasource {
   final SharedPreferences prefs;
-  final LocaleApiService apiService;
 
   static const _keyCurrentLanguage = 'current_language';
   static const _keyCachedTexts = 'cached_texts_';
   static const _appType = 'Unique_Health';
 
-  LocaleDatasource(this.prefs, this.apiService);
-
-  /// 从远程获取语言文本
-  Future<void> getRemoteLanguageTexts(String languageCode) async {
-    var code = languageCode;
-
-    switch (languageCode) {
-      case "zh-Hans":
-        code = "zh";
-        break;
-      case "zh-Hant":
-        code = "zh_tw";
-        break;
-      case "pt-BR":
-        code = "pt";
-        break;
-      case "id":
-        code = "ind";
-
-        break;
-      default:
-        break;
-    }
-
-    try {
-      final response = await apiService.getLanguageTexts(code, _appType);
-      final data = response.data;
-
-      // 假设返回格式为：{"data": {"key1": "value1", "key2": "value2"}}
-      if (data['data'] != null && data['data'] is Map) {
-        final texts = <String, String>{};
-        (data['data'] as Map).forEach((key, value) {
-          if (value is String) {
-            texts[key.toString()] = value;
-          }
-        });
-
-        // 缓存到本地
-        await _cacheLanguageTexts(languageCode, texts);
-      }
-    } catch (e) {
-      // 静默失败，使用缓存的语言文本
-    }
-  }
+  LocaleDatasource(this.prefs);
 
   /// 缓存语言文本到本地
   Future<void> _cacheLanguageTexts(

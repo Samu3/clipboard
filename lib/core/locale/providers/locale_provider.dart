@@ -2,7 +2,6 @@ import 'package:intl/locale.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:clipboard/core/channel/native_channel.dart';
-import 'package:clipboard/core/locale/data/api/locale_api_service.dart';
 import 'package:clipboard/core/utils/logger.dart';
 import '../data/datasources/locale_datasource.dart';
 import '../data/repositories/locale_repository_impl.dart';
@@ -21,9 +20,8 @@ SharedPreferences sharedPreferences(SharedPreferencesRef ref) {
 @Riverpod(keepAlive: true)
 LocaleDatasource localeDatasource(LocaleDatasourceRef ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  final api = ref.watch(localeApiServiceProvider);
 
-  return LocaleDatasource(prefs, api);
+  return LocaleDatasource(prefs);
 }
 
 // 仓库provider
@@ -51,7 +49,6 @@ class CurrentLanguage extends _$CurrentLanguage {
     final localDataSource = ref.watch(localeDatasourceProvider);
 
     await localDataSource.getAvailableLanguages(lang);
-    await localDataSource.getRemoteLanguageTexts(lang);
 
     _lastLoadedLang = lang;
 
@@ -76,7 +73,6 @@ class CurrentLanguage extends _$CurrentLanguage {
     final localDataSource = ref.watch(localeDatasourceProvider);
 
     await localDataSource.getAvailableLanguages(languageCode);
-    await localDataSource.getRemoteLanguageTexts(languageCode);
 
     updateAuthState(languageCode);
 

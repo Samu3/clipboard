@@ -1,3 +1,4 @@
+import 'package:clipboard/core/locale/providers/locale_provider.dart';
 import 'package:clipboard/core/widgets/custom_toggle.dart';
 import 'package:clipboard/features/macos/settings/channel/native_setting_channel.dart';
 import 'package:flutter/material.dart';
@@ -34,66 +35,69 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       body: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('错误: $err')),
-        data: (settings) => Column(
-          children: [
-            // 顶部导航栏
-            _buildTopBar(context),
-            const Divider(height: 1),
+        data: (settings) {
+          return Column(
+            children: [
+              // 顶部导航栏
+              _buildTopBar(context),
+              const Divider(height: 1),
 
-            // 设置内容
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSection(
-                      title: '快捷键设置',
-                      children: [
-                        _buildHotKeyItem(
-                          label: '显示粘贴板菜单',
-                          currentHotKey: settings.hotKey,
-                          onTap: () {
-                            _showHotKeyDialog(context);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    _buildSection(
-                      title: '常规设置',
-                      children: [
-                        _buildSwitchItem(
-                          label: '开机自启动',
-                          value: settings.autoStart,
-                          onChanged: (value) {
-                            ref
-                                .read(settingsNotifierProvider.notifier)
-                                .updateAutoStart(value);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    _buildSection(
-                      title: '关于',
-                      children: [
-                        _buildInfoItem(
-                          label: '版本',
-                          value: '1.0.0',
-                        ),
-                        _buildInfoItem(
-                          label: '意见反馈',
-                          value: '328889498@qq.com',
-                        ),
-                      ],
-                    ),
-                  ],
+              // 设置内容
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSection(
+                        title: '快捷键设置',
+                        children: [
+                          _buildHotKeyItem(
+                            label: '显示粘贴板菜单',
+                            currentHotKey: settings.hotKey,
+                            onTap: () {
+                              _showHotKeyDialog(context);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSection(
+                        title: '常规设置',
+                        children: [
+                          _buildSwitchItem(
+                            label: '开机自启动',
+                            value: settings.autoStart,
+                            onChanged: (value) {
+                              ref
+                                  .read(settingsNotifierProvider.notifier)
+                                  .updateAutoStart(value);
+                            },
+                          ),
+                          _buildLangItem(ref: ref, context: context)
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSection(
+                        title: '关于',
+                        children: [
+                          _buildInfoItem(
+                            label: '版本',
+                            value: '1.0.0',
+                          ),
+                          _buildInfoItem(
+                            label: '意见反馈',
+                            value: '328889498@qq.com',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -225,6 +229,95 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             value: value,
             onChanged: onChanged,
             activeColor: const Color(0xFF4F6BFF),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLangItem({
+    required WidgetRef ref,
+    required BuildContext context,
+  }) {
+    final langList = [
+      MapEntry('zh', '简体中文'),
+      MapEntry('en', 'English'),
+    ];
+
+    // 监听语言 AsyncValue
+    final langAsync = ref.watch(currentLanguageProvider);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            "语言",
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xFF1A1D23),
+            ),
+          ),
+          langAsync.when(
+            loading: () => const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            error: (err, stack) => const Text(''),
+            data: (currentLang) {
+              return PopupMenuButton<String>(
+                tooltip: '',
+                initialValue: currentLang,
+                onSelected: (langCode) {
+                  // 调用notifier更新语言
+                  ref
+                      .read(currentLanguageProvider.notifier)
+                      .changeLanguage(langCode);
+                },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 8,
+                color: Colors.white,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      langList.firstWhere((e) => e.key == currentLang).value,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF4F6BFF),
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ],
+                ),
+                itemBuilder: (context) {
+                  return langList.map((entry) {
+                    final isSelected = entry.key == currentLang;
+                    return PopupMenuItem<String>(
+                      value: entry.key,
+                      height: 40,
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(entry.value)),
+                          if (isSelected)
+                            const Icon(Icons.check,
+                                size: 16, color: Color(0xFF4F6BFF)),
+                        ],
+                      ),
+                    );
+                  }).toList();
+                },
+              );
+            },
           ),
         ],
       ),

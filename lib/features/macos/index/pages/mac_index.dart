@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:clipboard/core/locale/utils/translation_helper.dart';
 import 'package:clipboard/core/utils/app_toast.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_list_notifier.dart';
 import 'package:file_picker/file_picker.dart';
@@ -31,8 +32,6 @@ class _MacIndexState extends ConsumerState<MacIndex> {
     super.dispose();
   }
 
-  
-
   @override
   Widget build(BuildContext context) {
     final filterType = ref.watch(clipboardFilterProvider);
@@ -47,7 +46,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
       ),
       error: (err, stack) => Material(
         color: Colors.transparent,
-        child: Center(child: Text("缓存目录初始化失败：$err")),
+        child: Center(child: Text("$err")),
       ),
       data: (Directory cacheDir) {
         // ✅ cacheDir 拿到了，往下传递给所有子组件
@@ -138,7 +137,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                 ),
               ),
               data: (list) => Text(
-                '${list.length} 条记录',
+                '${list.length}条记录',
                 style: TextStyle(
                   color: const Color(0xFF9CA3AF),
                   fontSize: 11,
@@ -613,7 +612,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           // 菜单项
           _buildMenuItem(
             iconText: '⊞',
-            label: '全部',
+            label: ref.tr("QUAN_BU"),
             filterKey: 'all',
             active: activeFilter == 'all',
             ref: ref,
