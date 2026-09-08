@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clipboard/core/auth/auth_state.dart';
-import 'package:clipboard/core/channel/native_channel.dart';
 import 'package:clipboard/core/utils/logger.dart';
 
 part 'auth_provider.g.dart';
@@ -25,15 +24,6 @@ class AuthStateNotifier extends _$AuthStateNotifier {
           status: 0,
           lunchType: 0,
         );
-  }
-
-  Future<void> getAuthState() async {
-    logger.methodChannel('🔐 Calling getAppAuth');
-    final map = await AppChannel().getAppAuth();
-    logger.methodChannel('🔐 getAppAuth result: $map');
-    if (map.isNotEmpty) {
-      updateAuthFromMap(map);
-    }
   }
 
   /// 从 map 更新认证状态（内部方法）

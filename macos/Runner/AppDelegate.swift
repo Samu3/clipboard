@@ -8,7 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let windowDelegate = WindowCloseDelegate()
     
     private var clipboardMonitor: ClipboardMonitor?
-      private var clipboardMenuManager: ClipboardMenuManager?
+    private var clipboardMenuManager: ClipboardMenuManager?
     private var hotkeyRecorder: HotkeyRecorder = HotkeyRecorder.shared
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -31,26 +31,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                   name: "com.clipboard.setting/channel",
                   binaryMessenger: flutterVC.engine.binaryMessenger
                 )
-
-
+                
+                let langChanel = FlutterMethodChannel(
+                  name: "com.clipboard.language/channel",
+                  binaryMessenger: flutterVC.engine.binaryMessenger
+                )
+                
                 clipboardMonitor = ClipboardMonitor(channel: channel)
                 clipboardMonitor?.startMonitoring()
 
                 clipboardMenuManager = ClipboardMenuManager(channel: channel,appDelegate: self)
                 
                 hotkeyRecorder.channel = settingChannel
+                
+                LanguageManager.shared.setupMethodCall(c: langChanel)
 
+                // ========= 改动：语言切换回调，只更新菜单文字，不重建statusItem =========
+                LanguageManager.shared.updateLangCallBack = ({ [weak self] in
+                    guard let `self` = self else { return }
+                    self.updateStatusBarMenuTitles()
+                })
 
                 // 设置开机自启动的 Method Channel 处理
                 setupLaunchAtLoginHandler(channel: settingChannel)
             }
         }
-        
-
+        // ✅ 仅在启动时创建一次 statusItem
         setupStatusBarItem()
     }
 
-  
     private func setupHotKey() {
         // 注册全局快捷键 Command + Shift + V
         HotKeyManager.shared.registerHotKey { [weak self] in
@@ -61,11 +70,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showClipboardMenu() {
         clipboardMenuManager?.showClipboardMenu()
     }
-    
+
+    /// 【只执行一次】创建statusItem + 初始化菜单结构
     private func setupStatusBarItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            // 优先使用自定义图标
+//            // 优先使用自定义图标
             if let customIcon = NSImage(named: "MenuIcon") {
                 button.image = customIcon
             } else if #available(macOS 11.0, *),
@@ -76,33 +86,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // 降级使用文字/emoji
                 button.title = "📋"
             }
+//            button.image = NSImage(named: "preview_light")   // 已自动按 scale 选择
+//              button.image?.isTemplate = true                // 关键！告诉系统这是 template 图
+//              button.toolTip = "ClipSync"
         }
+        // 初始化菜单
+        rebuildStatusMenu()
+    }
 
+    /// 重建菜单结构（只新建menu，statusItem保留）
+    private func rebuildStatusMenu() {
         let menu = NSMenu()
-        let openItem = NSMenuItem(title: "打开主窗口", action: #selector(openMainWindow), keyEquivalent: "")
+        let openItem = NSMenuItem(title: "OPEN_MAIN".lang(), action: #selector(openMainWindow), keyEquivalent: "")
         openItem.target = self
         menu.addItem(openItem)
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "退出App", action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "EXIT_APP".lang(), action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         statusItem.menu = menu
     }
+
+    /// ✅【语言切换调用】只更新已有menuItem的文字，不再新建statusItem
+    private func updateStatusBarMenuTitles() {
+        guard let menu = statusItem.menu else { return }
+        // 遍历菜单项更新标题
+        for item in menu.items {
+            guard let action = item.action else { continue }
+            if action == #selector(openMainWindow) {
+                item.title = "OPEN_MAIN".lang()
+            } else if action == #selector(quitApp) {
+                item.title = "EXIT_APP".lang()
+            }
+        }
+    }
     
     @objc func openMainWindow() {
         guard let win = mainWindow else { return }
-             // 1. 临时切换为 regular，允许显示窗口
-             NSApp.setActivationPolicy(.regular)
-             // 2. 显示窗口
-        
+        // 1. 临时切换为 regular，允许显示窗口
+        NSApp.setActivationPolicy(.regular)
+        // 2. 显示窗口
         NSApp.activate(ignoringOtherApps: true)
-
-             win.makeKeyAndOrderFront(nil)
-        
-        win.orderFrontRegardless() // 强制放到最顶层，无视窗口层级
-
-     
+        win.makeKeyAndOrderFront(nil)
+        win.orderFrontRegardless()
     }
     
     @objc func quitApp() {
@@ -125,12 +152,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 
             case "startHotKey":
                 hotkeyRecorder.startRecord()
-
                 break
                 
             case "stopHotKey":
                 hotkeyRecorder.stopRecord()
-
                 break
                 
             case "updateHotKey":
@@ -179,7 +204,6 @@ class WindowCloseDelegate: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         sender.orderOut(nil)
         NSApp.setActivationPolicy(.accessory)
-
         return false
     }
 }

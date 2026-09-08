@@ -50,9 +50,9 @@ class AuthInterceptor extends Interceptor {
       options.headers.putIfAbsent('Accept-Language', () => 'zh');
       options.headers.putIfAbsent(
           'User-Agent', () => 'com.lefu.uniquehealth/1.0.0 (iPhone; iOS 18.0)');
-      options.headers.putIfAbsent('App-Type', () => 'Unique Health');
+      options.headers.putIfAbsent('App-Type', () => 'ClipSync');
       options.headers.putIfAbsent('App-Version', () => '1.0.0');
-      options.headers.putIfAbsent('appName', () => 'Unique Health');
+      options.headers.putIfAbsent('appName', () => 'ClipSync');
       options.headers.putIfAbsent('Timezone', () => 'Asia/Shanghai');
       options.headers.putIfAbsent('Local', () => 'CN');
 

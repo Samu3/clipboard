@@ -66,12 +66,12 @@ class ClipboardMenuManager {
         rootMenu.addItem(NSMenuItem.separator())
 
         // 显示主界面：直接调用 AppDelegate.showMainWindow
-        let showMainItem = NSMenuItem(title: "显示主界面", action: #selector(showMainWindow), keyEquivalent: "")
+        let showMainItem = NSMenuItem(title: "OPEN_MAIN".lang(), action: #selector(showMainWindow), keyEquivalent: "")
         showMainItem.target = self
         rootMenu.addItem(showMainItem)
 
         // 清除历史
-        let clearItem = NSMenuItem(title: "清除历史", action: #selector(clearHistory), keyEquivalent: "")
+        let clearItem = NSMenuItem(title: "CLEAR_ALL".lang(), action: #selector(clearHistory), keyEquivalent: "")
         clearItem.target = self
         rootMenu.addItem(clearItem)
        

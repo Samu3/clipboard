@@ -1,7 +1,7 @@
+import 'package:flutter/services.dart';
 import 'package:intl/locale.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:clipboard/core/channel/native_channel.dart';
 import 'package:clipboard/core/utils/logger.dart';
 import '../data/datasources/locale_datasource.dart';
 import '../data/repositories/locale_repository_impl.dart';
@@ -36,6 +36,8 @@ LocaleRepository localeRepository(LocaleRepositoryRef ref) {
 class CurrentLanguage extends _$CurrentLanguage {
   String? _lastLoadedLang;
 
+  var channel = const MethodChannel("com.clipboard.language/channel");
+
   @override
   Future<String> build() async {
     final repo = ref.watch(localeRepositoryProvider);
@@ -48,7 +50,9 @@ class CurrentLanguage extends _$CurrentLanguage {
     }
     final localDataSource = ref.watch(localeDatasourceProvider);
 
-    await localDataSource.getAvailableLanguages(lang);
+    var langMap = await localDataSource.getAvailableLanguages(lang);
+
+    channel.invokeMethod("updateLang", langMap);
 
     _lastLoadedLang = lang;
 
@@ -72,8 +76,9 @@ class CurrentLanguage extends _$CurrentLanguage {
     }
     final localDataSource = ref.watch(localeDatasourceProvider);
 
-    await localDataSource.getAvailableLanguages(languageCode);
+    var langMap = await localDataSource.getAvailableLanguages(languageCode);
 
+    channel.invokeMethod("updateLang", langMap);
     updateAuthState(languageCode);
 
     // 先保存语言设置

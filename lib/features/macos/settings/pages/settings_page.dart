@@ -1,4 +1,14 @@
 import 'package:clipboard/core/locale/providers/locale_provider.dart';
+import 'package:clipboard/core/locale/utils/translation_helper.dart';
+import 'package:clipboard/core/widgets/custom_toggle.dart';
+import 'package:clipboard/features/macos/settings/channel/native_setting_channel.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:clipboard/features/macos/settings/presentation/providers/settings_notifier.dart';
+import 'package:clipboard/features/macos/index/channel/native_clipboard_channel.dart';
+import 'dart:async';
+
+import 'package:clipboard/core/locale/providers/locale_provider.dart';
 import 'package:clipboard/core/widgets/custom_toggle.dart';
 import 'package:clipboard/features/macos/settings/channel/native_setting_channel.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +44,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       backgroundColor: Colors.white,
       body: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('错误: $err')),
+        error: (err, stack) =>
+            Center(child: Text('${ref.tr("ERROR_TEXT")} $err')),
         data: (settings) {
           return Column(
             children: [
@@ -50,10 +61,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildSection(
-                        title: '快捷键设置',
+                        title: ref.tr("SHORTCUT_SETTINGS"),
                         children: [
                           _buildHotKeyItem(
-                            label: '显示粘贴板菜单',
+                            label: ref.tr("SHOW_CLIPBOARD_MENU"),
                             currentHotKey: settings.hotKey,
                             onTap: () {
                               _showHotKeyDialog(context);
@@ -63,10 +74,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ),
                       const SizedBox(height: 24),
                       _buildSection(
-                        title: '常规设置',
+                        title: ref.tr("GENERAL_SETTINGS"),
                         children: [
                           _buildSwitchItem(
-                            label: '开机自启动',
+                            label: ref.tr("AUTO_START"),
                             value: settings.autoStart,
                             onChanged: (value) {
                               ref
@@ -79,14 +90,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ),
                       const SizedBox(height: 24),
                       _buildSection(
-                        title: '关于',
+                        title: ref.tr("ABOUT"),
                         children: [
                           _buildInfoItem(
-                            label: '版本',
+                            label: ref.tr("VERSION"),
                             value: '1.0.0',
                           ),
                           _buildInfoItem(
-                            label: '意见反馈',
+                            label: ref.tr("FEEDBACK"),
                             value: '328889498@qq.com',
                           ),
                         ],
@@ -112,9 +123,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           const SizedBox(width: 8),
-          const Text(
-            '设置',
-            style: TextStyle(
+          Text(
+            ref.tr("SETTINGS"),
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Color(0xFF1A1D23),
@@ -253,9 +264,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            "语言",
-            style: TextStyle(
+          Text(
+            ref.tr("LANGUAGE"),
+            style: const TextStyle(
               fontSize: 13,
               color: Color(0xFF1A1D23),
             ),
@@ -380,11 +391,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           });
 
           return AlertDialog(
-            title: const Text('修改快捷键'),
+            title: Text(ref.tr("MODIFY_HOTKEY")),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('按下你想设置的快捷键组合'),
+                Text(ref.tr("PRESS_HOTKEY_TIP")),
                 const SizedBox(height: 16),
                 if (_capturedHotkey != null)
                   Container(
@@ -406,7 +417,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ),
                   )
                 else
-                  const Text("等待按下快捷键..."),
+                  Text(ref.tr("WAITING_HOTKEY")),
               ],
             ),
             actions: [
@@ -416,7 +427,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   notifier.stopHotKey();
                   Navigator.of(dialogContext).pop();
                 },
-                child: const Text('取消'),
+                child: Text(ref.tr("CANCEL")),
               ),
               TextButton(
                 onPressed: _capturedHotkey != null
@@ -431,7 +442,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         Navigator.of(dialogContext).pop();
                       }
                     : null,
-                child: const Text('确定'),
+                child: Text(ref.tr("CONFIRM")),
               ),
             ],
           );

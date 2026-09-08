@@ -1,6 +1,6 @@
 {
-    "name": "unique_health",
-    "short_name": "unique_health",
+    "name": "ClipSync",
+    "short_name": "ClipSync",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

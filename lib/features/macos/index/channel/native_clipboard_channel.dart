@@ -172,7 +172,7 @@ class NativeClipboardChannel {
           textContent: textContent,
           hash: hash,
           sizeBytes: sizeBytes,
-          sourceDevice: "Mac本机",
+          sourceDevice: "Mac",
         );
         break;
 
@@ -200,7 +200,7 @@ class NativeClipboardChannel {
           preview: preview,
           hash: hash,
           sizeBytes: sizeBytes,
-          sourceDevice: "Mac本机",
+          sourceDevice: "Mac",
         );
         break;
 
@@ -240,7 +240,7 @@ class NativeClipboardChannel {
           textContent: textContent,
           hash: hash,
           sizeBytes: sizeBytes,
-          sourceDevice: "Mac本机",
+          sourceDevice: "Mac",
         );
         break;
     }

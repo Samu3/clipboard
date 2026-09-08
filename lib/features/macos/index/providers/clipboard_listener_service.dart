@@ -57,7 +57,7 @@ class ClipboardListenerService {
       textContent: text,
       hash: hash,
       sizeBytes: bytes.length,
-      sourceDevice: "Mac本机",
+      sourceDevice: "Mac",
     );
   }
 }

@@ -116,9 +116,9 @@ class _MacIndexState extends ConsumerState<MacIndex> {
               ),
             ),
             child: listAsync.when(
-              loading: () => const Text(
-                '加载中...',
-                style: TextStyle(
+              loading: () => Text(
+                ref.tr("LOADING"),
+                style: const TextStyle(
                   color: Color(0xFF9CA3AF),
                   fontSize: 11,
                   fontFamily: 'Inter',
@@ -127,7 +127,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                 ),
               ),
               error: (err, st) => Text(
-                '读取失败',
+                ref.tr("READ_FAILED"),
                 style: TextStyle(
                   color: Color(0xFF9CA3AF),
                   fontSize: 11,
@@ -137,7 +137,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                 ),
               ),
               data: (list) => Text(
-                '${list.length}条记录',
+                '${list.length}${ref.tr("RECORD_COUNT_SUFFIX")}',
                 style: TextStyle(
                   color: const Color(0xFF9CA3AF),
                   fontSize: 11,
@@ -151,7 +151,8 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           Expanded(
             child: listAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('错误：$err')),
+              error: (err, stack) =>
+                  Center(child: Text('${ref.tr("ERROR")}：$err')),
               data: (entryList) {
                 return NotificationListener<ScrollUpdateNotification>(
                   onNotification: (notification) {
@@ -176,10 +177,10 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                                     CircularProgressIndicator(strokeWidth: 2)),
                           );
                         } else {
-                          return const Padding(
-                            padding: EdgeInsets.all(12.0),
+                          return Padding(
+                            padding: const EdgeInsets.all(12.0),
                             child: Center(
-                                child: Text("没有更多记录了",
+                                child: Text(ref.tr("NO_MORE_RECORDS"),
                                     style: TextStyle(color: Colors.grey))),
                           );
                         }
@@ -190,7 +191,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                           onTapItem: () {
                             // Toast
                             if (context.mounted) {
-                              AppToast.show(context, "已复制到剪贴板");
+                              AppToast.show(context, ref.tr("COPY_SUCCESS"));
                             }
                             notifier.copyClipboardEntry(entry);
                           },
@@ -201,15 +202,15 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                title: const Text("确认删除"),
+                                title: Text(ref.tr("CONFIRM_DELETE")),
                                 actions: [
                                   TextButton(
                                       onPressed: () =>
                                           Navigator.pop(ctx, false),
-                                      child: const Text("取消")),
+                                      child: Text(ref.tr("CANCEL"))),
                                   TextButton(
                                       onPressed: () => Navigator.pop(ctx, true),
-                                      child: const Text("删除")),
+                                      child: Text(ref.tr("DELETE"))),
                                 ],
                               ),
                             );
@@ -255,10 +256,10 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                     ),
                     const SizedBox(width: 8),
                     Text(entry.type == "image"
-                        ? "图片详情"
+                        ? ref.tr("IMAGE_DETAIL")
                         : entry.type == "file"
-                            ? "文件详情"
-                            : "文本详情"),
+                            ? ref.tr("FILE_DETAIL")
+                            : ref.tr("TEXT_DETAIL")),
                     const Spacer(),
                     // ===== 右上角按钮区域 =====
                     if (entry.type == "text")
@@ -269,10 +270,10 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                           await Clipboard.setData(ClipboardData(text: newText));
                           onClose();
                           if (context.mounted) {
-                            AppToast.show(context, "已复制到剪贴板");
+                            AppToast.show(context, ref.tr("COPY_SUCCESS"));
                           }
                         },
-                        child: const Text("更新"),
+                        child: Text(ref.tr("UPDATE")),
                       ),
 
                     if (entry.type == "image")
@@ -288,7 +289,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                           final targetFile = File("$selectedDirPath/$fileName");
                           await imgFile.copy(targetFile.path);
                         },
-                        child: const Text("保存图片"),
+                        child: Text(ref.tr("SAVE_IMAGE")),
                       ),
                     if (entry.type == "file")
                       ElevatedButton(
@@ -307,7 +308,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                               await srcFile.copy(targetFile.path);
                             }
                           },
-                          child: const Text("下载"))
+                          child: Text(ref.tr("DOWNLOAD")))
                   ],
                 ),
               ),
@@ -338,9 +339,9 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           maxLines: null,
           minLines: 1,
           expands: false,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            hintText: "编辑文本内容",
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            hintText: ref.tr("EDIT_TEXT_HINT"),
           ),
           style: const TextStyle(
             fontSize: 13,
@@ -357,7 +358,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           child: Image.file(
             File(imgPath),
             fit: BoxFit.contain,
-            errorBuilder: (ctx, err, st) => const Text("图片损坏"),
+            errorBuilder: (ctx, err, st) => Text(ref.tr("IMAGE_BROKEN")),
           ),
         );
       case "file":
@@ -381,7 +382,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                   await srcFile.copy(targetFile.path);
                 }
               },
-              child: const Text("下载文件"),
+              child: Text(ref.tr("DOWNLOAD_FILE")),
             )
           ],
         );
@@ -397,7 +398,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
       required VoidCallback onToggleFavorite,
       required VoidCallback onDelete}) {
     final timeText = _formatTime(entry.createdAt);
-    final sourceText = entry.sourceDevice ?? "本机";
+    final sourceText = entry.sourceDevice ?? ref.tr("LOCAL_DEVICE");
     return InkWell(
       onTap: onTapItem,
       borderRadius: BorderRadius.circular(6),
@@ -451,9 +452,9 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                           height: 1.50,
                         ),
                       ),
-                      const Text(
-                        ' · ',
-                        style: TextStyle(
+                      Text(
+                        ref.tr("TIME_SEP"),
+                        style: const TextStyle(
                           color: Color(0xFFC4C9D4),
                           fontSize: 10,
                           fontFamily: 'Inter',
@@ -589,7 +590,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                 });
               },
               decoration: InputDecoration(
-                hintText: "搜索",
+                hintText: ref.tr("SEARCH"),
                 hintStyle: const TextStyle(
                   color: Color(0x7F1A1D23),
                   fontSize: 12,
@@ -611,7 +612,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
 
           // 菜单项
           _buildMenuItem(
-            iconText: '⊞',
+            iconText: '',
             label: ref.tr("QUAN_BU"),
             filterKey: 'all',
             active: activeFilter == 'all',
@@ -619,16 +620,16 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           ),
           const SizedBox(height: 4),
           _buildMenuItem(
-            iconText: 'T',
-            label: '文本',
+            iconText: '',
+            label: ref.tr("TEXT"),
             filterKey: 'text',
             ref: ref,
             active: activeFilter == 'text',
           ),
           const SizedBox(height: 4),
           _buildMenuItem(
-            iconText: '⬚',
-            label: '图片',
+            iconText: '',
+            label: ref.tr("IMAGE"),
             filterKey: 'image',
             ref: ref,
             active: activeFilter == 'image',
@@ -636,8 +637,8 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           const SizedBox(height: 4),
 
           _buildMenuItem(
-            iconText: '★',
-            label: '收藏',
+            iconText: '',
+            label: ref.tr("FAVORITE"),
             filterKey: 'favorite',
             ref: ref,
             active: activeFilter == 'favorite',
@@ -675,7 +676,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '设置',
+                    ref.tr("SETTINGS"),
                     style: TextStyle(
                       color: Color(0xFF6B7280),
                       fontSize: 13,
@@ -768,12 +769,12 @@ class _MacIndexState extends ConsumerState<MacIndex> {
     final now = DateTime.now().millisecondsSinceEpoch;
     final diff = now - ms;
     final minute = (diff / (1000 * 60)).floor();
-    if (minute < 1) return "刚刚";
-    if (minute < 60) return "$minute 分钟前";
+    if (minute < 1) return ref.tr("TIME_JUST_NOW");
+    if (minute < 60) return "$minute ${ref.tr("TIME_MINUTE_AGO")}";
     final hour = minute ~/ 60;
-    if (hour < 24) return "$hour 小时前";
+    if (hour < 24) return "$hour ${ref.tr("TIME_HOUR_AGO")}";
     final day = hour ~/ 24;
-    return "$day 天前";
+    return "$day ${ref.tr("TIME_DAY_AGO")}";
   }
 }
 

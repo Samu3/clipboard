@@ -207,7 +207,7 @@ class NativeSettingChannel {
           textContent: textContent,
           hash: hash,
           sizeBytes: sizeBytes,
-          sourceDevice: "Mac本机",
+          sourceDevice: "Mac",
         );
         break;
 
@@ -235,7 +235,7 @@ class NativeSettingChannel {
           preview: preview,
           hash: hash,
           sizeBytes: sizeBytes,
-          sourceDevice: "Mac本机",
+          sourceDevice: "Mac",
         );
         break;
 
@@ -275,7 +275,7 @@ class NativeSettingChannel {
           textContent: textContent,
           hash: hash,
           sizeBytes: sizeBytes,
-          sourceDevice: "Mac本机",
+          sourceDevice: "Mac",
         );
         break;
     }

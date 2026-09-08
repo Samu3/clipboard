@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:clipboard/core/channel/native_channel.dart';
 import 'package:clipboard/core/locale/providers/locale_provider.dart';
 import 'package:clipboard/core/network/api_config.dart';
 import 'package:clipboard/core/theme/app_theme.dart';
@@ -90,8 +89,6 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // 设置 AppChannel 的 ref，让它可以访问 providers
-    AppChannel().setRef(ref);
     // 使用 watch 保持 NativeClipboardChannel 实例存活，确保 MethodCallHandler 能接收回调
     ref.watch(nativeClipboardProvider);
 
@@ -114,7 +111,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     final locale = _getLocaleFromCode(currentLang);
 
     return MaterialApp.router(
-      title: 'Clip',
+      title: 'ClipSync',
       debugShowCheckedModeBanner: false,
       // 根据设置应用主题
       themeMode: themeMode,
