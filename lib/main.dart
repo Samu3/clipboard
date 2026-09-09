@@ -1,8 +1,7 @@
+import 'dart:io';
 import 'package:clipboard/features/macos/index/channel/native_clipboard_channel.dart';
-import 'package:clipboard/features/macos/index/providers/clipboard_listener_service.dart';
 import 'package:clipboard/features/macos/settings/channel/native_setting_channel.dart';
 import 'package:clipboard/features/macos/settings/data/providers/settings_providers.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -13,6 +12,7 @@ import 'package:clipboard/core/theme/app_theme.dart';
 import 'package:clipboard/core/theme/theme_mode_notifier.dart';
 import 'package:clipboard/core/router/app_router.dart';
 import 'package:clipboard/core/utils/logger.dart';
+import 'package:clipboard/features/sync/presentation/providers/sync_providers.dart';
 
 // 全局导航 key，用于在非 Widget 中访问路由
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -62,9 +62,11 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
     // 初始化快捷键
 
-    Future.delayed(Duration(seconds: 1)).then((v) {
-      _initializeHotkey();
-    });
+    if (Platform.isMacOS) {
+      Future.delayed(const Duration(seconds: 1)).then((_) {
+        if (mounted) _initializeHotkey();
+      });
+    }
   }
 
   Future<void> _initializeHotkey() async {
@@ -90,7 +92,8 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
     // 使用 watch 保持 NativeClipboardChannel 实例存活，确保 MethodCallHandler 能接收回调
-    ref.watch(nativeClipboardProvider);
+    if (Platform.isMacOS) ref.watch(nativeClipboardProvider);
+    if (Platform.isMacOS || Platform.isWindows) ref.watch(syncHubProvider);
 
     // 直接获取值，如果为 null 显示加载界面
     final themeMode = ref.watch(themeNotifierProvider).valueOrNull;
@@ -222,6 +225,5 @@ class _MyAppState extends ConsumerState<MyApp> {
     }
   }
 }
-
 
 /// 监听goRouter路由变化，上报栈深度给iOS原生

@@ -14,7 +14,7 @@ abstract class ClipboardRepository {
   Future<ClipboardEntry?> getEntryById(String id);
 
   /// 获取未删除列表，【增加filter筛选参数】
-  /// filter: all / text / image / file / favorite
+  /// filter: all / text / image / file / transfer / favorite
   Future<List<ClipboardEntry>> getActiveEntries({
     required String filter,
     required String keyword,

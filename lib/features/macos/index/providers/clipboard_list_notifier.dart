@@ -1,10 +1,10 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:clipboard/features/macos/index/channel/native_clipboard_channel.dart';
 import 'package:flutter/services.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clipboard/features/macos/index/domain/entities/clipboard_entry.dart';
-import 'package:clipboard/features/macos/index/domain/repositories/clipboard_repository.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_providers.dart';
 
 part 'clipboard_list_notifier.g.dart';
@@ -174,8 +174,12 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
           copySuccess = await nativeChannel.copyImageToPasteboard(filePath);
         }
       } else if (entry.type == "file") {
-        // 文件复制：后续对接mac原生MethodChannel，先占位
-        copySuccess = true;
+        final paths = entry.filePath?.isNotEmpty == true
+            ? [entry.filePath!]
+            : _filePaths(entry.textContent);
+        copySuccess = await ref
+            .read(nativeClipboardProvider)
+            .copyFilesToPasteboard(paths);
       }
 
       if (copySuccess) {
@@ -192,6 +196,15 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
   }
 
   void hotKeyCaptured() {}
+
+  List<String> _filePaths(String? value) {
+    if (value == null || value.isEmpty) return const [];
+    try {
+      return List<String>.from(jsonDecode(value) as List);
+    } catch (_) {
+      return value.split(',').where((path) => path.isNotEmpty).toList();
+    }
+  }
 
   /// 新增记录
   Future<void> addEntry(

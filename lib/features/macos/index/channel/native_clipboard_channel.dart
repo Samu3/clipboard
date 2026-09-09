@@ -116,6 +116,27 @@ class NativeClipboardChannel {
     }
   }
 
+  Future<bool> copyFilesToPasteboard(List<String> filePaths) async {
+    try {
+      final existingPaths = <String>[];
+      for (final path in filePaths) {
+        if (await FileSystemEntity.type(path) !=
+            FileSystemEntityType.notFound) {
+          existingPaths.add(path);
+        }
+      }
+      if (existingPaths.isEmpty) return false;
+      final result = await _channel.invokeMethod<bool>(
+        'copyFilesToPasteboard',
+        {'filePaths': existingPaths},
+      );
+      return result ?? false;
+    } catch (error) {
+      debugPrint('copyFilesToPasteboard error: $error');
+      return false;
+    }
+  }
+
   // ====== 新增：开机自启动功能 ======
   /// 设置开机自启动
   Future<bool> setLaunchAtLogin(bool enabled) async {
@@ -205,31 +226,31 @@ class NativeClipboardChannel {
         break;
 
       case "file":
-        final List<String> tempFilePaths =
-            List<String>.from(payload["filePaths"]);
-        List<List<int>> allFileBytes = [];
+        final List<String> filePaths = List<String>.from(payload["filePaths"]);
         int totalSize = 0;
-        List<String> fileNameList = [];
+        final fileNameList = <String>[];
+        final existingPaths = <String>[];
 
-        for (final path in tempFilePaths) {
-          final f = File(path);
-          if (!await f.exists()) continue;
-          final bytes = await f.readAsBytes();
-          allFileBytes.add(bytes);
-          totalSize += bytes.length;
-          fileNameList.add(f.path.split("/").last);
+        for (final path in filePaths) {
+          final entityType = await FileSystemEntity.type(path);
+          if (entityType == FileSystemEntityType.notFound) continue;
+          existingPaths.add(path);
+          fileNameList.add(path.split('/').last);
+          if (entityType == FileSystemEntityType.file) {
+            totalSize += await File(path).length();
+          }
         }
+        if (existingPaths.isEmpty) return;
 
-        final combineBytes = allFileBytes.expand((e) => e).toList();
-        hash = md5.convert(combineBytes).toString();
+        hash = md5.convert(utf8.encode(existingPaths.join('\n'))).toString();
         if (hash == _lastHash) return;
         _lastHash = hash;
         id = hash;
 
         title =
             fileNameList.isNotEmpty ? fileNameList.first : ""; // 文件title：第一个文件名
-        preview = "[文件] ${tempFilePaths.length}个文件";
-        textContent = tempFilePaths.join(",");
+        preview = existingPaths.join('\n');
+        textContent = jsonEncode(existingPaths);
         sizeBytes = totalSize;
 
         await notifier.addEntry(

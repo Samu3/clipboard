@@ -17,7 +17,7 @@ final appCacheDirProvider = FutureProvider<Directory>((ref) async {
   return dir;
 });
 
-// 筛选类型：all / text / image / file / favorite
+// 筛选类型：all / text / image / file / transfer / favorite
 final clipboardFilterProvider = StateProvider<String>((ref) => 'all');
 // 搜索关键词
 final clipboardSearchKeywordProvider = StateProvider<String>((ref) => '');

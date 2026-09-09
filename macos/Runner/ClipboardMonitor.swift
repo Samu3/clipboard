@@ -7,8 +7,6 @@ class ClipboardMonitor {
     private var timer: Timer?
     private var channel: FlutterMethodChannel?
     private let pasteboard = NSPasteboard.general
-    // 临时目录（给文件类型使用）
-    private let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
     public var skipNextPasteboardChange = false
     
 
@@ -45,7 +43,23 @@ class ClipboardMonitor {
                 result(true)
                 
                 self.skipNextPasteboardChange = true
-                
+            } else if call.method == "copyFilesToPasteboard" {
+                guard let args = call.arguments as? [String: Any],
+                      let filePaths = args["filePaths"] as? [String] else {
+                    result(false)
+                    return
+                }
+                let urls = filePaths
+                    .map { URL(fileURLWithPath: $0) }
+                    .filter { FileManager.default.fileExists(atPath: $0.path) }
+                guard !urls.isEmpty else {
+                    result(false)
+                    return
+                }
+                pasteboard.clearContents()
+                let succeeded = pasteboard.writeObjects(urls as [NSURL])
+                self.skipNextPasteboardChange = succeeded
+                result(succeeded)
             }
               
         }
@@ -129,44 +143,13 @@ class ClipboardMonitor {
         }
     }
 
-    /// 文件：复制到临时目录，返回临时文件路径数组
+    /// 文件：保留 Finder 提供的原始路径，用于展示和再次写入剪贴板。
     private func notifyFileChange(_ urls: [URL]) {
-        var tempFilePaths: [String] = []
-        for srcUrl in urls {
-            let fileName = srcUrl.lastPathComponent
-            let uuidName = "\(UUID().uuidString)-\(fileName)"
-            let destUrl = tempDir.appendingPathComponent(uuidName)
-            
-            notifyTextChange(srcUrl.absoluteString)
-//            // Mac沙盒关键：访问粘贴板文件安全书签
-//            let accessGranted = srcUrl.startAccessingSecurityScopedResource()
-//            defer {
-//                if accessGranted {
-//                    srcUrl.stopAccessingSecurityScopedResource()
-//                }
-//            }
-//            
-//            if !accessGranted {
-//                print("⚠️ 文件无法获取安全访问权限: \(srcUrl.path)")
-//                continue
-//            }
-//            
-//            do {
-//                try FileManager.default.copyItem(at: srcUrl, to: destUrl)
-//                tempFilePaths.append(destUrl.path)
-//                print("✅ 文件复制成功: \(destUrl.path)")
-//            } catch {
-//                print("❌ 文件复制失败 \(srcUrl.path): \(error)")
-//            }
-        }
-        
-        if tempFilePaths.isEmpty {
-            return
-        }
-        
+        let filePaths = urls.filter(\.isFileURL).map(\.path)
+        guard !filePaths.isEmpty else { return }
         let args: [String: Any] = [
             "type": "file",
-            "payload": ["filePaths": tempFilePaths]
+            "payload": ["filePaths": filePaths]
         ]
         channel?.invokeMethod("onClipboardChange", arguments: args)
     }

@@ -1,18 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:clipboard/core/locale/utils/translation_helper.dart';
 import 'package:clipboard/core/utils/app_toast.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_list_notifier.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipboard/features/macos/index/domain/entities/clipboard_entry.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_providers.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
 
 class MacIndex extends ConsumerStatefulWidget {
   const MacIndex({super.key});
@@ -25,6 +24,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
   Timer? _searchDebounceTimer;
   // 新增：选中条目
   ClipboardEntry? selectedEntry;
+  final Set<String> selectedTransfers = {};
 
   @override
   void dispose() {
@@ -63,6 +63,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                     listAsync,
                     notifier,
                     selectedEntry,
+                    filterType: filterType,
                     cacheDir: cacheDir, // 把cacheDir传进去
                     onSelectEntry: (entry) {
                       setState(() {
@@ -90,6 +91,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
     AsyncValue<List<ClipboardEntry>> listAsync,
     ClipboardListNotifier notifier,
     ClipboardEntry? selectedEntry, {
+    required String filterType,
     required Directory cacheDir, // 新增
     required ValueChanged<ClipboardEntry> onSelectEntry,
     required VoidCallback onCloseDetail,
@@ -148,6 +150,9 @@ class _MacIndexState extends ConsumerState<MacIndex> {
               ),
             ),
           ),
+          if (filterType == 'transfer')
+            _transferToolbar(
+                context, listAsync.valueOrNull ?? const [], notifier),
           Expanded(
             child: listAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -186,9 +191,16 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                         }
                       }
                       final entry = entryList[index];
-                      return item(context, ref, entry,
+                      final entryWidget = item(context, ref, entry,
                           cacheDir: cacheDir, // 传给item
                           onTapItem: () {
+                            if (filterType == 'transfer') {
+                              setState(() =>
+                                  selectedTransfers.contains(entry.id)
+                                      ? selectedTransfers.remove(entry.id)
+                                      : selectedTransfers.add(entry.id));
+                              return;
+                            }
                             // Toast
                             if (context.mounted) {
                               AppToast.show(context, ref.tr("COPY_SUCCESS"));
@@ -218,6 +230,17 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                               notifier.softDelete(entry);
                             }
                           });
+                      if (filterType != 'transfer') return entryWidget;
+                      return Row(children: [
+                        Checkbox(
+                          value: selectedTransfers.contains(entry.id),
+                          onChanged: (_) => setState(() =>
+                              selectedTransfers.contains(entry.id)
+                                  ? selectedTransfers.remove(entry.id)
+                                  : selectedTransfers.add(entry.id)),
+                        ),
+                        Expanded(child: entryWidget),
+                      ]);
                     },
                   ),
                 );
@@ -227,6 +250,133 @@ class _MacIndexState extends ConsumerState<MacIndex> {
         ],
       ),
     );
+  }
+
+  Widget _transferToolbar(BuildContext context, List<ClipboardEntry> entries,
+      ClipboardListNotifier notifier) {
+    final selected =
+        entries.where((entry) => selectedTransfers.contains(entry.id)).toList();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: const Color(0xFFF8FAFF),
+      child: Row(children: [
+        Checkbox(
+          value: entries.isNotEmpty && selected.length == entries.length,
+          tristate: selected.isNotEmpty && selected.length != entries.length,
+          onChanged: (_) => setState(() {
+            if (selected.length == entries.length) {
+              selectedTransfers.clear();
+            } else {
+              selectedTransfers.addAll(entries.map((entry) => entry.id));
+            }
+          }),
+        ),
+        Text('已选择 ${selected.length} 项'),
+        const Spacer(),
+        // TextButton.icon(
+        //   onPressed: selected.isEmpty ? null : () => _viewTransfers(selected),
+        //   icon: const Icon(Icons.visibility_outlined),
+        //   label: const Text('批量查看'),
+        // ),
+        const SizedBox(width: 6),
+        FilledButton.tonalIcon(
+          onPressed: selected.isEmpty ? null : () => _saveTransfers(selected),
+          icon: const Icon(Icons.drive_folder_upload_outlined),
+          label: const Text('保存到文件夹'),
+        ),
+        const SizedBox(width: 6),
+        TextButton.icon(
+          onPressed: selected.isEmpty
+              ? null
+              : () => _deleteTransfers(context, selected, notifier),
+          icon: const Icon(Icons.delete_outline),
+          label: const Text('批量删除'),
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _saveTransfers(List<ClipboardEntry> entries) async {
+    final directory = await FilePicker.platform.getDirectoryPath();
+    if (directory == null) return;
+    for (final entry in entries) {
+      final path = entry.filePath;
+      if (path == null) continue;
+      final source = File(path);
+      if (!await source.exists()) continue;
+      final name = entry.title ?? source.uri.pathSegments.last;
+      var target = File('$directory/$name');
+      var suffix = 1;
+      while (await target.exists()) {
+        final dot = name.lastIndexOf('.');
+        final base = dot > 0 ? name.substring(0, dot) : name;
+        final extension = dot > 0 ? name.substring(dot) : '';
+        target = File('$directory/$base ($suffix)$extension');
+        suffix++;
+      }
+      await source.copy(target.path);
+    }
+    if (mounted) AppToast.show(context, '已保存 ${entries.length} 个项目');
+  }
+
+  Future<void> _viewTransfers(List<ClipboardEntry> entries) => showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('已选择 ${entries.length} 个项目'),
+          content: SizedBox(
+            width: 460,
+            height: 320,
+            child: ListView(
+              children: entries
+                  .map((entry) => ListTile(
+                        leading: Icon(entry.type == 'image'
+                            ? Icons.image_outlined
+                            : Icons.insert_drive_file_outlined),
+                        title: Text(entry.title ?? '未命名文件'),
+                        subtitle: SelectableText(entry.filePath ?? '文件不可用'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() => selectedEntry = entry);
+                        },
+                      ))
+                  .toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('关闭'))
+          ],
+        ),
+      );
+
+  Future<void> _deleteTransfers(BuildContext context,
+      List<ClipboardEntry> entries, ClipboardListNotifier notifier) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('删除 ${entries.length} 个传输项目？'),
+        content: const Text('记录及应用内保存的文件将被删除。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('删除')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    for (final entry in entries) {
+      final path = entry.filePath;
+      if (path != null) {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      }
+      await notifier.softDelete(entry);
+    }
+    if (mounted) setState(selectedTransfers.clear);
   }
 
   // ========== 详情页面 ==========
@@ -294,13 +444,12 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                     if (entry.type == "file")
                       ElevatedButton(
                           onPressed: () async {
-                            final List<String> tempPaths =
-                                (entry.textContent ?? "").split(",").toList();
+                            final paths = _filePathsForEntry(entry);
                             final result =
                                 await FilePicker.platform.getDirectoryPath();
                             if (result == null) return;
-                            final saveDir = Directory(result!);
-                            for (final srcPath in tempPaths) {
+                            final saveDir = Directory(result);
+                            for (final srcPath in paths) {
                               final srcFile = File(srcPath);
                               if (!await srcFile.exists()) continue;
                               final targetFile = File(
@@ -362,19 +511,18 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           ),
         );
       case "file":
-        final List<String> tempPaths =
-            (entry.textContent ?? "").split(",").toList();
+        final paths = _filePathsForEntry(entry);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(entry.preview ?? ""),
+            SelectableText(paths.join('\n')),
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () async {
                 final result = await FilePicker.platform.getDirectoryPath();
                 if (result == null) return;
-                final saveDir = Directory(result!);
-                for (final srcPath in tempPaths) {
+                final saveDir = Directory(result);
+                for (final srcPath in paths) {
                   final srcFile = File(srcPath);
                   if (!await srcFile.exists()) continue;
                   final targetFile =
@@ -439,6 +587,19 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                       height: 1.40,
                     ),
                   ),
+                  if (entry.type == 'file') ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.preview ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 10,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 2),
                   Row(
                     children: [
@@ -562,7 +723,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
 
   Widget leftMenu(BuildContext context, WidgetRef ref, String activeFilter) {
     return Container(
-      width: 122.28,
+      width: 150,
       height: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: ShapeDecoration(
@@ -635,6 +796,22 @@ class _MacIndexState extends ConsumerState<MacIndex> {
             active: activeFilter == 'image',
           ),
           const SizedBox(height: 4),
+          _buildMenuItem(
+            iconText: '',
+            label: ref.tr("FILE"),
+            filterKey: 'file',
+            ref: ref,
+            active: activeFilter == 'file',
+          ),
+          const SizedBox(height: 4),
+          _buildMenuItem(
+            iconText: '',
+            label: '传输文件夹',
+            filterKey: 'transfer',
+            ref: ref,
+            active: activeFilter == 'transfer',
+          ),
+          const SizedBox(height: 4),
 
           _buildMenuItem(
             iconText: '',
@@ -645,6 +822,21 @@ class _MacIndexState extends ConsumerState<MacIndex> {
           ),
 
           const Expanded(child: SizedBox()),
+
+          GestureDetector(
+            onTap: () => context.push('/sync'),
+            child: Container(
+              width: 105.66,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: const Row(children: [
+                Icon(Icons.sync_alt, size: 14, color: Color(0xFF4F6BFF)),
+                SizedBox(width: 6),
+                Text('设备同步',
+                    style: TextStyle(color: Color(0xFF4F6BFF), fontSize: 13)),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 4),
 
           // 设置按钮
           const Divider(height: 1),
@@ -713,7 +905,7 @@ class _MacIndexState extends ConsumerState<MacIndex> {
         ref.read(clipboardFilterProvider.notifier).state = filterKey;
       },
       child: Container(
-        width: 105.66,
+        width: 130,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: ShapeDecoration(
           color: bgColor,
@@ -764,6 +956,20 @@ class _MacIndexState extends ConsumerState<MacIndex> {
         return "•";
     }
   }
+
+  List<String> _filePaths(String? value) {
+    if (value == null || value.isEmpty) return const [];
+    try {
+      return List<String>.from(jsonDecode(value) as List);
+    } catch (_) {
+      return value.split(',').where((path) => path.isNotEmpty).toList();
+    }
+  }
+
+  List<String> _filePathsForEntry(ClipboardEntry entry) =>
+      entry.filePath?.isNotEmpty == true
+          ? [entry.filePath!]
+          : _filePaths(entry.textContent);
 
   String _formatTime(int ms) {
     final now = DateTime.now().millisecondsSinceEpoch;

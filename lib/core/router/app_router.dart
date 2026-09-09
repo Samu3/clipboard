@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
+import 'package:clipboard/features/ios/iphone_clipboard_page.dart';
+import 'package:clipboard/features/sync/presentation/pages/sync_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:clipboard/features/macos/index/pages/mac_index.dart';
@@ -15,12 +16,18 @@ GoRouter goRouter(GoRouterRef ref) {
       GoRoute(
         path: '/',
         name: 'home',
-        builder: (context, state) => const MacIndex(),
+        builder: (context, state) =>
+            Platform.isIOS ? const IphoneClipboardPage() : const MacIndex(),
       ),
       GoRoute(
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: '/sync',
+        name: 'sync',
+        builder: (context, state) => const SyncPage(),
       ),
     ],
   );
