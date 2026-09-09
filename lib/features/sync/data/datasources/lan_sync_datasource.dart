@@ -90,9 +90,7 @@ class LanSyncDatasource {
     final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
     socket.broadcastEnabled = true;
     final peers = <String, SyncPeer>{};
-    final completer = Completer<List<SyncPeer>>();
-    late StreamSubscription subscription;
-    subscription = socket.listen((event) {
+    final subscription = socket.listen((event) {
       if (event != RawSocketEvent.read) return;
       final datagram = socket.receive();
       if (datagram == null) return;
@@ -105,12 +103,67 @@ class LanSyncDatasource {
     });
     socket.send(utf8.encode(_discoveryMessage),
         InternetAddress('255.255.255.255'), discoveryPort);
-    Timer(const Duration(seconds: 2), () async {
-      await subscription.cancel();
-      socket.close();
-      if (!completer.isCompleted) completer.complete(peers.values.toList());
-    });
-    return completer.future;
+    final localAddresses = await _localAddresses();
+    for (final address in localAddresses) {
+      final parts = address.split('.');
+      if (parts.length == 4) {
+        parts[3] = '255';
+        socket.send(utf8.encode(_discoveryMessage),
+            InternetAddress(parts.join('.')), discoveryPort);
+      }
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    await subscription.cancel();
+    socket.close();
+    if (peers.isNotEmpty) return peers.values.toList();
+
+    for (final address in localAddresses) {
+      final discovered = await _scan24Subnet(address);
+      for (final peer in discovered) {
+        peers[peer.id] = peer;
+      }
+    }
+    return peers.values.toList();
+  }
+
+  Future<List<SyncPeer>> _scan24Subnet(String localAddress) async {
+    final parts = localAddress.split('.');
+    if (parts.length != 4) return const [];
+    final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+    final peers = <SyncPeer>[];
+    const batchSize = 32;
+    for (var start = 1; start <= 254; start += batchSize) {
+      final end = min(start + batchSize - 1, 254);
+      final results = await Future.wait([
+        for (var suffix = start; suffix <= end; suffix++)
+          _probeHub('$prefix.$suffix'),
+      ]);
+      peers.addAll(results.whereType<SyncPeer>());
+    }
+    return peers;
+  }
+
+  Future<SyncPeer?> _probeHub(String host) async {
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(milliseconds: 450)
+      ..findProxy = (_) => 'DIRECT';
+    try {
+      final request = await client
+          .getUrl(Uri.parse('http://$host:$servicePort/v1/info'))
+          .timeout(const Duration(milliseconds: 550));
+      final response = await request.close().timeout(
+            const Duration(milliseconds: 550),
+          );
+      if (response.statusCode != HttpStatus.ok) return null;
+      final json = jsonDecode(await utf8.decoder.bind(response).join())
+          as Map<String, dynamic>;
+      if (json['protocol'] != protocolVersion) return null;
+      return SyncPeer.fromJson(json, host);
+    } catch (_) {
+      return null;
+    } finally {
+      client.close(force: true);
+    }
   }
 
   Future<SyncPeer> inspectHub(String host) async {
@@ -192,7 +245,9 @@ class LanSyncDatasource {
   Future<Map<String, dynamic>> _request(
       String host, int port, String method, String path,
       {String? token, Map<String, dynamic>? body}) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 4)
+      ..findProxy = (_) => 'DIRECT';
     try {
       final request =
           await client.openUrl(method, Uri.parse('http://$host:$port$path'));
@@ -209,6 +264,12 @@ class LanSyncDatasource {
         throw SyncNetworkException(json['message'] as String? ?? '连接失败');
       }
       return json;
+    } on SocketException catch (error) {
+      throw SyncNetworkException(
+          '无法连接 $host:$port（${error.osError?.message ?? error.message}）。请确认使用 Mac 当前 Wi-Fi IP，并关闭两端 VPN 或代理后重试');
+    } on TimeoutException {
+      throw SyncNetworkException(
+          '连接 $host:$port 超时。请确认 iPhone 与 Mac 在同一 Wi-Fi，且路由器未开启设备隔离');
     } finally {
       client.close(force: true);
     }
@@ -415,12 +476,40 @@ class LanSyncDatasource {
   static Future<List<String>> _localAddresses() async {
     final interfaces =
         await NetworkInterface.list(type: InternetAddressType.IPv4);
-    return interfaces
-        .expand((interface) => interface.addresses)
-        .where((address) => !address.isLoopback)
-        .map((address) => address.address)
-        .toSet()
-        .toList();
+    final candidates = <({String interface, String address})>[];
+    for (final interface in interfaces) {
+      final name = interface.name.toLowerCase();
+      if (name.startsWith('bridge') ||
+          name.startsWith('utun') ||
+          name.startsWith('awdl') ||
+          name.startsWith('llw') ||
+          name.startsWith('anpi') ||
+          name == 'lo0') {
+        continue;
+      }
+      for (final address in interface.addresses) {
+        final value = address.address;
+        if (!address.isLoopback && _isPrivateAddress(value)) {
+          candidates.add((interface: name, address: value));
+        }
+      }
+    }
+    candidates.sort((a, b) {
+      final aPriority = a.interface == 'en0' ? 0 : 1;
+      final bPriority = b.interface == 'en0' ? 0 : 1;
+      return aPriority.compareTo(bPriority);
+    });
+    return candidates.map((item) => item.address).toSet().toList();
+  }
+
+  static bool _isPrivateAddress(String address) {
+    final parts = address.split('.').map(int.tryParse).toList();
+    if (parts.length != 4 || parts.any((part) => part == null)) return false;
+    final first = parts[0]!;
+    final second = parts[1]!;
+    return first == 10 ||
+        (first == 172 && second >= 16 && second <= 31) ||
+        (first == 192 && second == 168);
   }
 }
 

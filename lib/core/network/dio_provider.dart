@@ -37,9 +37,9 @@ Map<String, dynamic> _getCommonHeaders() {
     'Content-Type': 'application/json',
     'Accept-Language': 'zh', // 默认中文，拦截器中会动态更新
     'User-Agent': 'com.lefu.uniquehealth/1.0.0 (iPhone; iOS 18.0)',
-    'App-Type': 'ClipSync',
+    'App-Type': 'PasteLink',
     'App-Version': '1.0.0', // TODO: 从 package_info 获取
-    'appName': 'ClipSync',
+    'appName': 'PasteLink',
     'Timezone': 'Asia/Shanghai',
     'Local': 'CN',
     'Timestamp': DateTime.now().millisecondsSinceEpoch.toString(),

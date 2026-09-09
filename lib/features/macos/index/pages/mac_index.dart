@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:clipboard/core/locale/utils/translation_helper.dart';
 import 'package:clipboard/core/utils/app_toast.dart';
+import 'package:clipboard/core/widgets/local_video_player.dart';
 import 'package:clipboard/features/macos/index/providers/clipboard_list_notifier.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -331,7 +332,9 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                   .map((entry) => ListTile(
                         leading: Icon(entry.type == 'image'
                             ? Icons.image_outlined
-                            : Icons.insert_drive_file_outlined),
+                            : entry.type == 'video'
+                                ? Icons.video_file_outlined
+                                : Icons.insert_drive_file_outlined),
                         title: Text(entry.title ?? '未命名文件'),
                         subtitle: SelectableText(entry.filePath ?? '文件不可用'),
                         onTap: () {
@@ -407,9 +410,11 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                     const SizedBox(width: 8),
                     Text(entry.type == "image"
                         ? ref.tr("IMAGE_DETAIL")
-                        : entry.type == "file"
-                            ? ref.tr("FILE_DETAIL")
-                            : ref.tr("TEXT_DETAIL")),
+                        : entry.type == "video"
+                            ? '视频详情'
+                            : entry.type == "file"
+                                ? ref.tr("FILE_DETAIL")
+                                : ref.tr("TEXT_DETAIL")),
                     const Spacer(),
                     // ===== 右上角按钮区域 =====
                     if (entry.type == "text")
@@ -440,6 +445,11 @@ class _MacIndexState extends ConsumerState<MacIndex> {
                           await imgFile.copy(targetFile.path);
                         },
                         child: Text(ref.tr("SAVE_IMAGE")),
+                      ),
+                    if (entry.type == "video")
+                      ElevatedButton(
+                        onPressed: () => _saveSingleFile(entry),
+                        child: const Text('保存视频'),
                       ),
                     if (entry.type == "file")
                       ElevatedButton(
@@ -510,6 +520,11 @@ class _MacIndexState extends ConsumerState<MacIndex> {
             errorBuilder: (ctx, err, st) => Text(ref.tr("IMAGE_BROKEN")),
           ),
         );
+      case "video":
+        final path = entry.filePath;
+        return path == null
+            ? const Text('视频文件不可用')
+            : LocalVideoPlayer(path: path);
       case "file":
         final paths = _filePathsForEntry(entry);
         return Column(
@@ -719,6 +734,17 @@ class _MacIndexState extends ConsumerState<MacIndex> {
         ),
       );
     }
+  }
+
+  Future<void> _saveSingleFile(ClipboardEntry entry) async {
+    final sourcePath = entry.filePath;
+    if (sourcePath == null) return;
+    final directory = await FilePicker.platform.getDirectoryPath();
+    if (directory == null) return;
+    final source = File(sourcePath);
+    if (!await source.exists()) return;
+    await source
+        .copy('$directory/${entry.title ?? source.uri.pathSegments.last}');
   }
 
   Widget leftMenu(BuildContext context, WidgetRef ref, String activeFilter) {
@@ -950,6 +976,8 @@ class _MacIndexState extends ConsumerState<MacIndex> {
         return "T";
       case "image":
         return "🖼";
+      case "video":
+        return "▶";
       case "file":
         return "📄";
       default:

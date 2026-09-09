@@ -69,19 +69,20 @@ class IphoneClipboardService {
     return entry;
   }
 
-  Future<void> syncKeyboard(ClipboardRepository repo) async {
+  Future<void> syncKeyboard(ClipboardRepository repo, String language) async {
     final entries =
         await repo.getActiveEntries(filter: 'text', keyword: '', limit: 200);
-    await channel.invokeMethod(
-        'syncKeyboardTexts',
-        entries
-            .where((entry) => entry.textContent?.isNotEmpty == true)
-            .map((entry) => {
-                  'text': entry.textContent!,
-                  'favorite': entry.favorite == 1,
-                  'createdAt': entry.createdAt,
-                })
-            .toList());
+    await channel.invokeMethod('syncKeyboardTexts', {
+      'language': language,
+      'entries': entries
+          .where((entry) => entry.textContent?.isNotEmpty == true)
+          .map((entry) => {
+                'text': entry.textContent!,
+                'favorite': entry.favorite == 1,
+                'createdAt': entry.createdAt,
+              })
+          .toList(),
+    });
   }
 
   Future<String> resolvePath(String path) async {
@@ -90,11 +91,13 @@ class IphoneClipboardService {
   }
 
   Future<void> saveImageToPhotos(ClipboardEntry entry) async {
-    if (entry.type != 'image' || entry.filePath == null) {
-      throw StateError('图片不存在');
+    if ((entry.type != 'image' && entry.type != 'video') ||
+        entry.filePath == null) {
+      throw StateError('媒体文件不存在');
     }
     final saved = await channel.invokeMethod<bool>('saveImageToPhotos', {
       'path': await resolvePath(entry.filePath!),
+      'type': entry.type,
     });
     if (saved != true) throw StateError('保存失败');
   }

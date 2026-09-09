@@ -16,41 +16,41 @@ final class KeyboardViewController: UIInputViewController, UICollectionViewDataS
     private var collection: UICollectionView!
     private var refreshTimer: Timer?
     private var snapshot: Data?
+    private var language = "zh"
+    private let titleLabel = UILabel()
+    private let refresh = UIButton(type: .system)
+    private let dismiss = UIButton(type: .system)
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1)
-        let height = view.heightAnchor.constraint(equalToConstant: 300)
+        let height = view.heightAnchor.constraint(equalToConstant: 250)
         height.priority = .defaultHigh
         height.isActive = true
 
-        let title = UILabel()
-        title.text = "ClipSync · 文本剪贴板"
-        title.font = .systemFont(ofSize: 15, weight: .semibold)
-        title.textColor = .label
-        let refresh = UIButton(type: .system)
+        titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        titleLabel.textColor = .label
         refresh.setImage(UIImage(systemName: "arrow.clockwise"), for: .normal)
-        refresh.accessibilityLabel = "刷新文本记录"
         refresh.addTarget(self, action: #selector(reloadEntries), for: .touchUpInside)
-        let header = UIStackView(arrangedSubviews: [title, refresh])
-        header.spacing = 12
-        refresh.widthAnchor.constraint(equalToConstant: 44).isActive = true
-        header.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        let header = UIStackView(arrangedSubviews: [titleLabel, refresh])
+        header.spacing = 8
+        refresh.widthAnchor.constraint(equalToConstant: 36).isActive = true
+        header.heightAnchor.constraint(equalToConstant: 32).isActive = true
         tabs.selectedSegmentIndex = 0
         tabs.addTarget(self, action: #selector(filterEntries), for: .valueChanged)
         tabs.selectedSegmentTintColor = UIColor(red: 0.88, green: 0.91, blue: 1, alpha: 1)
 
         let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = .horizontal
-        layout.minimumInteritemSpacing = 8
-        layout.minimumLineSpacing = 8
+        layout.scrollDirection = .vertical
+        layout.minimumInteritemSpacing = 5
+        layout.minimumLineSpacing = 5
         collection = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collection.backgroundColor = .clear
         collection.register(TextCell.self, forCellWithReuseIdentifier: "text")
         collection.dataSource = self
         collection.delegate = self
-        collection.alwaysBounceVertical = false
-        collection.alwaysBounceHorizontal = true
+        collection.alwaysBounceVertical = true
+        collection.alwaysBounceHorizontal = false
         collection.showsVerticalScrollIndicator = false
         collection.showsHorizontalScrollIndicator = false
         collection.isDirectionalLockEnabled = true
@@ -59,29 +59,29 @@ final class KeyboardViewController: UIInputViewController, UICollectionViewDataS
         globe.setImage(UIImage(systemName: "globe"), for: .normal)
         globe.accessibilityLabel = "切换键盘"
         globe.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
-        globe.widthAnchor.constraint(equalToConstant: 44).isActive = true
-        let dismiss = UIButton(type: .system)
+        globe.widthAnchor.constraint(equalToConstant: 38).isActive = true
         dismiss.setImage(UIImage(systemName: "keyboard.chevron.compact.down"), for: .normal)
         dismiss.accessibilityLabel = "收起键盘"
-        dismiss.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        dismiss.widthAnchor.constraint(equalToConstant: 38).isActive = true
         dismiss.addTarget(self, action: #selector(closeKeyboard), for: .touchUpInside)
         status.font = .systemFont(ofSize: 11)
         status.textColor = .secondaryLabel
         status.numberOfLines = 2
         status.textAlignment = .center
         let footer = UIStackView(arrangedSubviews: [globe, status, dismiss])
-        footer.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        footer.heightAnchor.constraint(equalToConstant: 36).isActive = true
         let stack = UIStackView(arrangedSubviews: [header, tabs, collection, footer])
         stack.axis = .vertical
-        stack.spacing = 8
+        stack.spacing = 5
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 6),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 4),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
             stack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
+        applyLanguage()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -107,17 +107,23 @@ final class KeyboardViewController: UIInputViewController, UICollectionViewDataS
 
     @objc private func reloadEntries() {
         guard let root = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) else {
-            showEmpty("无法读取历史，请检查 App Groups 配置")
+            showEmpty(tr("groupError"))
             return
+        }
+        let languageURL = root.appendingPathComponent("keyboard-language.txt")
+        let newLanguage = (try? String(contentsOf: languageURL, encoding: .utf8)) ?? "zh"
+        if newLanguage != language {
+            language = newLanguage.hasPrefix("en") ? "en" : "zh"
+            applyLanguage()
         }
         let url = root.appendingPathComponent("keyboard-texts.json")
         guard let data = try? Data(contentsOf: url) else {
-            showEmpty("请先打开 ClipSync 保存文本")
+            showEmpty(tr("openApp"))
             return
         }
         if data != snapshot {
             guard let decoded = try? JSONDecoder().decode([ClipText].self, from: data) else {
-                showEmpty("历史读取失败，请打开 ClipSync 后重试")
+                showEmpty(tr("readError"))
                 return
             }
             snapshot = data
@@ -139,19 +145,19 @@ final class KeyboardViewController: UIInputViewController, UICollectionViewDataS
         label.textColor = .secondaryLabel
         label.font = .systemFont(ofSize: 13)
         collection.backgroundView = label
-        status.text = "仅展示本地文本记录"
+        status.text = tr("localOnly")
     }
 
     @objc private func filterEntries() {
         filtered = tabs.selectedSegmentIndex == 1 ? entries.filter { $0.favorite } : entries
         collection.reloadData()
         let empty = UILabel()
-        empty.text = tabs.selectedSegmentIndex == 1 ? "还没有收藏的文本" : "请先打开 ClipSync 保存文本"
+        empty.text = tabs.selectedSegmentIndex == 1 ? tr("noFavorites") : tr("openApp")
         empty.textAlignment = .center
         empty.font = .systemFont(ofSize: 13)
         empty.textColor = .secondaryLabel
         collection.backgroundView = filtered.isEmpty ? empty : nil
-        status.text = "点击卡片输入 · 最近 200 条文本"
+        status.text = tr("hint")
     }
 
     @objc private func closeKeyboard() { dismissKeyboard() }
@@ -163,22 +169,52 @@ final class KeyboardViewController: UIInputViewController, UICollectionViewDataS
         let entry = filtered[indexPath.item]
         let date = Date(timeIntervalSince1970: entry.createdAt / 1000)
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        cell.configure(text: entry.text, detail: formatter.localizedString(for: date, relativeTo: Date()), favorite: entry.favorite)
+        formatter.locale = Locale(identifier: language == "en" ? "en_US" : "zh_CN")
+        cell.configure(text: entry.text,
+                       detail: formatter.localizedString(for: date, relativeTo: Date()),
+                       favorite: entry.favorite,
+                       accessibilityPrefix: language == "en" ? "Insert" : "输入",
+                       accessibilityHint: language == "en" ? "Insert at the cursor" : "插入当前输入框的光标位置")
         return cell
     }
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let columns: CGFloat = collectionView.bounds.width > 600 ? 4 : 2
-        // Fill the available height so the horizontal layout stays in one row.
-        return CGSize(width: max(80, (collectionView.bounds.width - (columns - 1) * 8) / columns),
-                      height: max(1, collectionView.bounds.height))
+        return CGSize(width: max(1, collectionView.bounds.width), height: 54)
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         textDocumentProxy.insertText(filtered[indexPath.item].text)
-        status.text = "已插入输入框"
-        UIAccessibility.post(notification: .announcement, argument: "已插入输入框")
+        status.text = tr("inserted")
+        UIAccessibility.post(notification: .announcement, argument: tr("inserted"))
+    }
+
+    private func applyLanguage() {
+        titleLabel.text = tr("title")
+        tabs.setTitle(tr("all"), forSegmentAt: 0)
+        tabs.setTitle(tr("favorites"), forSegmentAt: 1)
+        refresh.accessibilityLabel = tr("refresh")
+        globe.accessibilityLabel = tr("switchKeyboard")
+        dismiss.accessibilityLabel = tr("dismiss")
+    }
+
+    private func tr(_ key: String) -> String {
+        let en = language == "en"
+        let values: [String: (String, String)] = [
+            "title": ("PasteLink · 文本剪贴板", "PasteLink · Text Clipboard"),
+            "all": ("全部", "All"), "favorites": ("收藏", "Favorites"),
+            "refresh": ("刷新文本记录", "Refresh text history"),
+            "switchKeyboard": ("切换键盘", "Switch keyboard"),
+            "dismiss": ("收起键盘", "Dismiss keyboard"),
+            "groupError": ("无法读取历史，请检查 App Groups 配置", "Unable to read history. Check App Groups."),
+            "openApp": ("请先打开 PasteLink 保存文本", "Open PasteLink and save some text first"),
+            "readError": ("历史读取失败，请打开 PasteLink 后重试", "Unable to read history. Open PasteLink and retry."),
+            "localOnly": ("仅展示本地文本记录", "Showing local text only"),
+            "noFavorites": ("还没有收藏的文本", "No favorite text yet"),
+            "hint": ("点击卡片输入 · 最近 200 条文本", "Tap to insert · Latest 200 texts"),
+            "inserted": ("已插入输入框", "Inserted into text field")
+        ]
+        guard let value = values[key] else { return key }
+        return en ? value.1 : value.0
     }
 }
 
@@ -195,29 +231,45 @@ private final class TextCell: UICollectionViewCell {
         icon.font = .systemFont(ofSize: 12, weight: .semibold)
         icon.textColor = .systemBlue
         textLabel.font = .systemFont(ofSize: 13)
-        textLabel.numberOfLines = 3
+        textLabel.numberOfLines = 2
+        textLabel.lineBreakMode = .byTruncatingTail
+        textLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailLabel.font = .systemFont(ofSize: 10)
         detailLabel.textColor = .secondaryLabel
+        detailLabel.textAlignment = .right
+        detailLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         let stack = UIStackView(arrangedSubviews: [icon, textLabel, detailLabel])
-        stack.axis = .vertical
-        stack.spacing = 5
+        stack.axis = .horizontal
+        stack.alignment = .center
+        stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
-            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 10),
-            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
-            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -10)
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 7),
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -7),
+            icon.widthAnchor.constraint(equalToConstant: 34),
+            detailLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 54)
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    func configure(text: String, detail: String, favorite: Bool) {
+    override var isHighlighted: Bool {
+        didSet {
+            contentView.backgroundColor = isHighlighted
+                ? UIColor.systemBlue.withAlphaComponent(0.16)
+                : .secondarySystemGroupedBackground
+            transform = isHighlighted ? CGAffineTransform(scaleX: 0.97, y: 0.97) : .identity
+        }
+    }
+    func configure(text: String, detail: String, favorite: Bool,
+                   accessibilityPrefix: String, accessibilityHint: String) {
         icon.text = favorite ? "Aa  ★" : "Aa"
         textLabel.text = text
         detailLabel.text = detail
-        accessibilityLabel = "输入：\(text)"
-        accessibilityHint = "插入当前输入框的光标位置"
+        accessibilityLabel = "\(accessibilityPrefix): \(text)"
+        self.accessibilityHint = accessibilityHint
     }
 }

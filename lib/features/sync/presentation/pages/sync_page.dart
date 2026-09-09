@@ -92,9 +92,9 @@ class _HubPanelState extends ConsumerState<_HubPanel> {
   bool sending = false;
   String? transferMessage;
 
-  Future<void> chooseForIPhone(bool images) async {
+  Future<void> chooseForIPhone(bool media) async {
     final picked = await FilePicker.platform.pickFiles(
-        allowMultiple: true, type: images ? FileType.image : FileType.any);
+        allowMultiple: true, type: media ? FileType.media : FileType.any);
     if (picked == null || picked.files.isEmpty) return;
     setState(() => sending = true);
     try {
@@ -105,7 +105,7 @@ class _HubPanelState extends ConsumerState<_HubPanel> {
         final item = await repository.importAsset(
           name: file.name,
           bytes: await File(file.path!).readAsBytes(),
-          image: images,
+          type: media ? _mediaType(file.name) : 'file',
         );
         await repository.queueForPairedDevices(item);
         count++;
@@ -118,6 +118,13 @@ class _HubPanelState extends ConsumerState<_HubPanel> {
     } finally {
       if (mounted) setState(() => sending = false);
     }
+  }
+
+  String _mediaType(String name) {
+    const videoExtensions = {'mp4', 'mov', 'm4v', 'avi', 'mkv', 'webm', '3gp'};
+    return videoExtensions.contains(name.split('.').last.toLowerCase())
+        ? 'video'
+        : 'image';
   }
 
   @override
@@ -142,7 +149,7 @@ class _HubPanelState extends ConsumerState<_HubPanel> {
                     ? null
                     : () => chooseForIPhone(true),
                 icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: const Text('发送照片到 iPhone'),
+                label: const Text('发送照片/视频到 iPhone'),
               ),
             ),
             const SizedBox(width: 10),
@@ -323,7 +330,7 @@ class _ClientPanel extends ConsumerWidget {
         FilledButton.icon(
           onPressed: state.busy ? null : controller.discover,
           icon: const Icon(Icons.radar),
-          label: const Text('扫描局域网中的 ClipSync'),
+          label: const Text('扫描局域网中的 PasteLink'),
         ),
         if (state.discovered.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -391,9 +398,9 @@ class _HistoryBrowser extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: state.busy
                       ? null
-                      : () => controller.chooseAndSend(images: true),
+                      : () => controller.chooseAndSend(media: true),
                   icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: const Text('发送照片'),
+                  label: const Text('发送照片/视频'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -401,7 +408,7 @@ class _HistoryBrowser extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: state.busy
                       ? null
-                      : () => controller.chooseAndSend(images: false),
+                      : () => controller.chooseAndSend(media: false),
                   icon: const Icon(Icons.upload_file_outlined),
                   label: const Text('发送文件'),
                 ),
@@ -489,12 +496,14 @@ class _SelectableHistory extends StatelessWidget {
 
   static IconData _icon(String type) => switch (type) {
         'image' => Icons.image_outlined,
+        'video' => Icons.video_file_outlined,
         'file' => Icons.insert_drive_file_outlined,
         _ => Icons.text_snippet_outlined,
       };
 
   static String _typeLabel(String type) => switch (type) {
         'image' => '图片',
+        'video' => '视频',
         'file' => '文件',
         _ => '文本',
       };

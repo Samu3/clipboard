@@ -114,7 +114,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     final locale = _getLocaleFromCode(currentLang);
 
     return MaterialApp.router(
-      title: 'ClipSync',
+      title: 'PasteLink',
       debugShowCheckedModeBanner: false,
       // 根据设置应用主题
       themeMode: themeMode,

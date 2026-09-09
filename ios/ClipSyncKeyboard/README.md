@@ -1,10 +1,10 @@
-# ClipSync iOS 键盘
+# PasteLink iOS 键盘
 
 主 App 前台收录文本后，通过 `syncKeyboardTexts` 原子写入 App Group 中的 `keyboard-texts.json`。键盘读取最近 200 条文本快照，支持全部、文本和收藏分类；点击卡片调用 `textDocumentProxy.insertText`，不读取宿主聊天内容、不自动发送、不写入剪贴板。
 
 ## 启用
 
-先打开主 App 保存文本，然后在 iOS 设置 → 通用 → 键盘 → 键盘 → 添加新键盘中选择 ClipSync。在聊天输入框长按地球图标切换到 ClipSync。安全输入框或禁止第三方键盘的 App 不会显示此键盘。
+先打开主 App 保存文本，然后在 iOS 设置 → 通用 → 键盘 → 键盘 → 添加新键盘中选择 PasteLink。在聊天输入框长按地球图标切换到 PasteLink。安全输入框或禁止第三方键盘的 App 不会显示此键盘。
 
 键盘仅只读共享容器，`RequestsOpenAccess` 为 false。首版不包含键盘搜索、图片或文件插入。
 

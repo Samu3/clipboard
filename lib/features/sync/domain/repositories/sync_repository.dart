@@ -19,7 +19,7 @@ abstract class SyncRepository {
   Future<SyncClipboardItem> importAsset({
     required String name,
     required List<int> bytes,
-    required bool image,
+    required String type,
   });
   Future<void> queueForPairedDevices(SyncClipboardItem item);
   Future<int> receiveQueued(SyncPeer peer);

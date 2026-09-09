@@ -139,7 +139,12 @@ class ClipboardListNotifier extends _$ClipboardListNotifier {
   }
 
   void deleteFile(ClipboardEntry entry) async {
-    if (entry.type == "image" && entry.filePath != null) {
+    if ((entry.type == "image" ||
+            entry.type == "video" ||
+            (entry.type == "file" &&
+                (entry.id.startsWith('sync-') ||
+                    entry.id.startsWith('import-')))) &&
+        entry.filePath != null) {
       final file = File(entry.filePath!);
       if (await file.exists()) {
         await file.delete();

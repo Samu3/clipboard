@@ -1,6 +1,7 @@
 import UIKit
 import Flutter
 import Photos
+import AVFoundation
 
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate {
@@ -36,7 +37,8 @@ import Photos
             result(nil)
           }
         case "syncKeyboardTexts":
-          guard let entries = call.arguments as? [[String: Any]],
+          guard let args = call.arguments as? [String: Any],
+                let entries = args["entries"] as? [[String: Any]],
                 let root = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.lefu.xinxx.test") else {
             result(FlutterError(code: "shared_container", message: "键盘共享容器不可用，请检查 App Groups 配置", details: nil))
             return
@@ -44,6 +46,9 @@ import Photos
           do {
             let data = try JSONSerialization.data(withJSONObject: entries)
             try data.write(to: root.appendingPathComponent("keyboard-texts.json"), options: .atomic)
+            let language = (args["language"] as? String ?? "zh")
+            try language.data(using: .utf8)?.write(
+              to: root.appendingPathComponent("keyboard-language.txt"), options: .atomic)
             result(true)
           } catch {
             result(FlutterError(code: "keyboard_sync", message: error.localizedDescription, details: nil))
@@ -51,21 +56,21 @@ import Photos
         case "saveImageToPhotos":
           guard let args = call.arguments as? [String: Any],
                 let path = args["path"] as? String,
-                FileManager.default.fileExists(atPath: path),
-                UIImage(contentsOfFile: path) != nil else {
-            result(FlutterError(code: "invalid_image", message: "图片不存在或已损坏", details: nil))
+                FileManager.default.fileExists(atPath: path) else {
+            result(FlutterError(code: "invalid_media", message: "媒体文件不存在或已损坏", details: nil))
             return
           }
           PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
             guard status == .authorized || status == .limited else {
               DispatchQueue.main.async {
-                result(FlutterError(code: "photos_permission", message: "请在系统设置中允许 ClipSync 添加照片", details: nil))
+                result(FlutterError(code: "photos_permission", message: "请在系统设置中允许 PasteLink 添加照片", details: nil))
               }
               return
             }
             PHPhotoLibrary.shared().performChanges({
               let request = PHAssetCreationRequest.forAsset()
-              request.addResource(with: .photo, fileURL: URL(fileURLWithPath: path), options: nil)
+              let resourceType: PHAssetResourceType = args["type"] as? String == "video" ? .video : .photo
+              request.addResource(with: resourceType, fileURL: URL(fileURLWithPath: path), options: nil)
             }) { success, error in
               DispatchQueue.main.async {
                 if success {
@@ -119,6 +124,13 @@ import Photos
           }
           self.presentShareSheet(items: [text], from: controller)
           result(true)
+        case "convertVideoForPlayback":
+          guard let args = call.arguments as? [String: Any],
+                let path = args["path"] as? String else {
+            result(FlutterError(code: "invalid_video", message: "缺少视频路径", details: nil))
+            return
+          }
+          self.convertVideo(path: path, result: result)
         default:
           result(FlutterMethodNotImplemented)
         }
@@ -136,5 +148,30 @@ import Photos
                                   width: 1, height: 1)
     }
     controller.present(share, animated: true)
+  }
+
+  private func convertVideo(path: String, result: @escaping FlutterResult) {
+    let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+    guard let exporter = AVAssetExportSession(asset: asset,
+                                               presetName: AVAssetExportPreset1280x720) else {
+      result(FlutterError(code: "video_convert", message: "当前视频编码无法转换", details: nil))
+      return
+    }
+    let output = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
+    exporter.outputURL = output
+    exporter.outputFileType = .mp4
+    exporter.shouldOptimizeForNetworkUse = true
+    exporter.exportAsynchronously {
+      DispatchQueue.main.async {
+        if exporter.status == .completed {
+          result(output.path)
+        } else {
+          result(FlutterError(code: "video_convert",
+                              message: exporter.error?.localizedDescription ?? "视频转换失败",
+                              details: nil))
+        }
+      }
+    }
   }
 }

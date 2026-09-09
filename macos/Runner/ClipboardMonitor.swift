@@ -1,6 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import Foundation
+import AVFoundation
 
 class ClipboardMonitor {
     private var changeCount: Int
@@ -60,8 +61,40 @@ class ClipboardMonitor {
                 let succeeded = pasteboard.writeObjects(urls as [NSURL])
                 self.skipNextPasteboardChange = succeeded
                 result(succeeded)
+            } else if call.method == "convertVideoForPlayback" {
+                guard let args = call.arguments as? [String: Any],
+                      let path = args["path"] as? String else {
+                    result(FlutterError(code: "invalid_video", message: "缺少视频路径", details: nil))
+                    return
+                }
+                self.convertVideo(path: path, result: result)
             }
               
+        }
+    }
+
+    private func convertVideo(path: String, result: @escaping FlutterResult) {
+        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        guard let exporter = AVAssetExportSession(asset: asset,
+                                                   presetName: AVAssetExportPreset1280x720) else {
+            result(FlutterError(code: "video_convert", message: "当前视频编码无法转换", details: nil))
+            return
+        }
+        let output = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
+        exporter.outputURL = output
+        exporter.outputFileType = .mp4
+        exporter.shouldOptimizeForNetworkUse = true
+        exporter.exportAsynchronously {
+            DispatchQueue.main.async {
+                if exporter.status == .completed {
+                    result(output.path)
+                } else {
+                    result(FlutterError(code: "video_convert",
+                                        message: exporter.error?.localizedDescription ?? "视频转换失败",
+                                        details: nil))
+                }
+            }
         }
     }
 

@@ -4,6 +4,7 @@ import 'clipboard_text_editor.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:clipboard/core/widgets/local_video_player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import '../macos/index/domain/entities/clipboard_entry.dart';
 import '../macos/index/domain/repositories/clipboard_repository.dart';
 import '../macos/index/providers/clipboard_providers.dart';
 import 'iphone_clipboard_service.dart';
+import '../../core/locale/providers/locale_provider.dart';
 
 class IphoneClipboardPage extends ConsumerStatefulWidget {
   const IphoneClipboardPage({super.key});
@@ -34,13 +36,17 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
   bool _more = true;
   int _request = 0;
   static const _blue = Color(0xFF3869EA);
-  static const _filters = {
-    'all': '全部',
-    'text': '文本',
-    'image': '图片',
-    'file': '文件',
-    'favorite': '收藏'
-  };
+  Map<String, String> get _filters => {
+        'all': _tr('全部', 'All'),
+        'text': _tr('文本', 'Text'),
+        'image': _tr('图片', 'Images'),
+        'video': _tr('视频', 'Videos'),
+        'file': _tr('文件', 'Files'),
+        'favorite': _tr('收藏', 'Favorites'),
+      };
+
+  String _tr(String zh, String en) =>
+      (ref.read(currentLanguageProvider).valueOrNull ?? 'zh') == 'en' ? en : zh;
 
   @override
   void initState() {
@@ -120,7 +126,10 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
     try {
       final repo = await _repo;
       try {
-        await ref.read(iphoneClipboardServiceProvider).syncKeyboard(repo);
+        final language = ref.read(currentLanguageProvider).valueOrNull ?? 'zh';
+        await ref
+            .read(iphoneClipboardServiceProvider)
+            .syncKeyboard(repo, language);
       } catch (error) {
         debugPrint('Keyboard history sync failed: $error');
       }
@@ -136,7 +145,9 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
       });
     } catch (error, stack) {
       debugPrint('Clipboard history load failed: $error\n$stack');
-      if (mounted && request == _request) setState(() => _error = '加载失败，请重试');
+      if (mounted && request == _request) {
+        setState(() => _error = _tr('加载失败，请重试', 'Loading failed. Try again.'));
+      }
     } finally {
       if (mounted && request == _request) setState(() => _loading = false);
     }
@@ -154,7 +165,8 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
     try {
       await action();
     } catch (_) {
-      _message('操作失败，请检查粘贴权限或文件后重试');
+      _message(_tr('操作失败，请检查粘贴权限或文件后重试',
+          'Operation failed. Check clipboard permission or the file.'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -165,12 +177,13 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
         final entry = await service.paste(await _repo);
         if (!mounted) return;
         if (entry == null) {
-          _message('没有可保存的文本或图片；文件请通过“导入文件”添加');
+          _message(_tr('没有可保存的文本或图片；文件请通过“导入文件”添加',
+              'No text or image to save. Import files from the menu.'));
         } else {
           _search.clear();
           _filter = 'all';
           await _reload();
-          _message('已保存到剪贴板历史');
+          _message(_tr('已保存到剪贴板历史', 'Saved to clipboard history'));
         }
       });
 
@@ -178,13 +191,21 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
     await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-              title: const Text('启用 ClipSync 键盘'),
-              content: const Text(
-                  '在系统设置 → 通用 → 键盘 → 键盘 → 添加新键盘中选择 ClipSync。\n\n在聊天输入框中长按地球图标，切换到 ClipSync，点击文本卡片即可输入。\n\n键盘展示最近 200 条本地文本；先回到 App 保存内容。'),
+              title: Text(_tr('PasteLink 帮助', 'PasteLink Help')),
+              content: Text(_tr(
+                  '在系统设置 → 通用 → 键盘 → 键盘 → 添加新键盘中选择 PasteLink。\n\n在聊天输入框中长按地球图标，切换到 PasteLink，点击文本卡片即可输入。\n\n键盘展示最近 200 条本地文本；先回到 App 保存内容。',
+                  'Add PasteLink in Settings → General → Keyboard → Keyboards.\n\nIn a text field, hold the globe key, switch to PasteLink, then tap a text card to insert it.\n\nThe keyboard shows your latest 200 local text items.')),
               actions: [
+                TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _import();
+                    },
+                    icon: const Icon(Icons.upload_file_outlined),
+                    label: Text(_tr('导入文件', 'Import file'))),
                 TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('知道了'))
+                    child: Text(_tr('知道了', 'Done')))
               ],
             ));
   }
@@ -203,12 +224,13 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
         _search.clear();
         _filter = 'all';
         await _reload();
-        _message('文件已保存');
+        _message(_tr('文件已保存', 'File saved'));
       });
 
   Future<void> _copy(ClipboardEntry entry) => _run(() async {
         await ref.read(iphoneClipboardServiceProvider).copy(entry);
-        _message('已复制，可切换到其他应用粘贴');
+        _message(
+            _tr('已复制，可切换到其他应用粘贴', 'Copied. Switch to another app to paste.'));
       });
 
   Future<void> _favorite(ClipboardEntry entry) => _run(() async {
@@ -224,15 +246,16 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
     final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-                title: const Text('删除这条记录？'),
-                content: const Text('删除后将不再显示在本地历史中。'),
+                title: Text(_tr('删除这条记录？', 'Delete this item?')),
+                content: Text(_tr('删除后将不再显示在本地历史中。',
+                    'It will be removed from local history.')),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(context, false),
-                      child: const Text('取消')),
+                      child: Text(_tr('取消', 'Cancel'))),
                   TextButton(
                       onPressed: () => Navigator.pop(context, true),
-                      child: const Text('删除'))
+                      child: Text(_tr('删除', 'Delete')))
                 ]));
     if (confirmed != true || !mounted) return;
     await _run(() async {
@@ -290,19 +313,19 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(children: [
-                            const Expanded(
-                                child: Text('剪贴板内容',
-                                    style: TextStyle(
+                            Expanded(
+                                child: Text(_tr('剪贴板内容', 'Clipboard item'),
+                                    style: const TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w600))),
                             IconButton(
-                                tooltip: '分享',
+                                tooltip: _tr('分享', 'Share'),
                                 onPressed: () => _run(() => ref
                                     .read(iphoneClipboardServiceProvider)
                                     .share(entry)),
                                 icon: const Icon(Icons.ios_share_outlined)),
                             IconButton(
-                                tooltip: '关闭',
+                                tooltip: _tr('关闭', 'Close'),
                                 onPressed: () => Navigator.pop(context),
                                 icon: const Icon(Icons.close))
                           ]),
@@ -311,14 +334,17 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                               child: SingleChildScrollView(
                                   child: entry.type == 'image'
                                       ? _image(entry, large: true)
-                                      : SelectableText(
-                                          entry.textContent ??
-                                              entry.title ??
-                                              '文件',
-                                          style:
-                                              const TextStyle(fontSize: 16)))),
+                                      : entry.type == 'video'
+                                          ? _video(entry)
+                                          : SelectableText(
+                                              entry.textContent ??
+                                                  entry.title ??
+                                                  '文件',
+                                              style: const TextStyle(
+                                                  fontSize: 16)))),
                           const SizedBox(height: 16),
-                          if (entry.type == 'image') ...[
+                          if (entry.type == 'image' ||
+                              entry.type == 'video') ...[
                             SaveImageButton(
                                 onSave: () => ref
                                     .read(iphoneClipboardServiceProvider)
@@ -331,7 +357,7 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                                 _copy(entry);
                               },
                               icon: const Icon(Icons.copy),
-                              label: const Text('复制内容')),
+                              label: Text(_tr('复制内容', 'Copy'))),
                         ])))));
   }
 
@@ -339,6 +365,8 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
   Widget build(BuildContext context) {
     // Keep the repository and its database open while this page is visible.
     ref.watch(clipboardRepositoryProvider);
+    final currentLanguage =
+        ref.watch(currentLanguageProvider).valueOrNull ?? 'zh';
     return Theme(
       data: ThemeData(
           useMaterial3: true,
@@ -346,93 +374,110 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
           colorScheme: ColorScheme.fromSeed(seedColor: _blue),
           scaffoldBackgroundColor: const Color(0xFFF7F8FA)),
       child: Scaffold(
+          appBar: AppBar(
+            title: const Text('PasteLink'),
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            actions: [
+              PopupMenuButton<String>(
+                tooltip: _tr('语言设置', 'Language settings'),
+                initialValue: currentLanguage,
+                icon: const Icon(Icons.language_outlined),
+                onSelected: _changeLanguage,
+                itemBuilder: (_) => [
+                  CheckedPopupMenuItem(
+                    value: 'zh',
+                    checked: currentLanguage == 'zh',
+                    child: const Text('简体中文'),
+                  ),
+                  CheckedPopupMenuItem(
+                    value: 'en',
+                    checked: currentLanguage == 'en',
+                    child: const Text('English'),
+                  ),
+                ],
+              ),
+              IconButton(
+                tooltip: _tr('设备同步', 'Device sync'),
+                onPressed: _busy ? null : () => context.push('/sync'),
+                icon: const Icon(Icons.sync_alt_rounded),
+              ),
+              IconButton(
+                tooltip: _tr('帮助', 'Help'),
+                onPressed: _showKeyboardGuide,
+                icon: const Icon(Icons.help_outline_rounded),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
           body: SafeArea(
               child: Column(children: [
-        Container(
-            width: double.infinity,
-            color: const Color(0xFFF0F1F4),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-            child: const Text('●  前台自动收录 · 历史记录保存在此设备',
-                style: TextStyle(color: Color(0xFF6B7280), fontSize: 12))),
-        _pasteBanner(),
-        Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-            child: Row(children: [
-              const Icon(Icons.content_paste_rounded, color: _blue),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: TextField(
-                      controller: _search,
-                      onChanged: (_) => _reload(),
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                          hintText: '搜索剪贴板…',
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          suffixIcon: _search.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: '清除搜索',
-                                  icon: const Icon(Icons.close, size: 18),
-                                  onPressed: () {
-                                    _search.clear();
-                                    _reload();
-                                  }),
-                          filled: true,
-                          fillColor: const Color(0xFFF3F4F6),
-                          isDense: true,
-                          border: OutlineInputBorder(
-                              borderSide: BorderSide.none,
-                              borderRadius: BorderRadius.circular(10))))),
-              PopupMenuButton<String>(
-                  tooltip: '更多操作',
-                  enabled: !_busy,
-                  onSelected: (action) {
-                    if (action == 'sync') {
-                      context.push('/sync');
-                    } else if (action == 'keyboard') {
-                      _showKeyboardGuide();
-                    } else {
-                      _import();
-                    }
-                  },
-                  itemBuilder: (_) => [
-                        const PopupMenuItem(
-                            value: 'sync', child: Text('设备配对与同步')),
-                        const PopupMenuItem(
-                            value: 'import', child: Text('导入文件')),
-                        const PopupMenuItem(
-                            value: 'keyboard', child: Text('启用 ClipSync 键盘'))
-                      ]),
-            ])),
-        Container(
-            color: Colors.white,
-            alignment: Alignment.centerLeft,
-            child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                    children: _filters.entries
-                        .map((filter) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ChoiceChip(
-                                label: Text(filter.value),
-                                selected: _filter == filter.key,
-                                showCheckmark: false,
-                                onSelected: (_) {
-                                  _filter = filter.key;
-                                  _reload();
-                                },
-                                selectedColor: const Color(0xFFE9EFFF),
-                                side: BorderSide.none,
-                                labelStyle: TextStyle(
-                                    color: _filter == filter.key
-                                        ? _blue
-                                        : const Color(0xFF6B7280)))))
-                        .toList()))),
-        Expanded(child: _body()),
-      ]))),
+            _pasteBanner(),
+            Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                child: Row(children: [
+                  const Icon(Icons.content_paste_rounded, color: _blue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: TextField(
+                          controller: _search,
+                          onChanged: (_) => _reload(),
+                          textInputAction: TextInputAction.search,
+                          decoration: InputDecoration(
+                              hintText: _tr('搜索剪贴板…', 'Search clipboard…'),
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              suffixIcon: _search.text.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: _tr('清除搜索', 'Clear search'),
+                                      icon: const Icon(Icons.close, size: 18),
+                                      onPressed: () {
+                                        _search.clear();
+                                        _reload();
+                                      }),
+                              filled: true,
+                              fillColor: const Color(0xFFF3F4F6),
+                              isDense: true,
+                              border: OutlineInputBorder(
+                                  borderSide: BorderSide.none,
+                                  borderRadius: BorderRadius.circular(10))))),
+                ])),
+            Container(
+                color: Colors.white,
+                alignment: Alignment.centerLeft,
+                child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                        children: _filters.entries
+                            .map((filter) => Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ChoiceChip(
+                                    label: Text(filter.value),
+                                    selected: _filter == filter.key,
+                                    showCheckmark: false,
+                                    onSelected: (_) {
+                                      _filter = filter.key;
+                                      _reload();
+                                    },
+                                    selectedColor: const Color(0xFFE9EFFF),
+                                    side: BorderSide.none,
+                                    labelStyle: TextStyle(
+                                        color: _filter == filter.key
+                                            ? _blue
+                                            : const Color(0xFF6B7280)))))
+                            .toList()))),
+            Expanded(child: _body()),
+          ]))),
     );
+  }
+
+  Future<void> _changeLanguage(String selected) async {
+    final current = ref.read(currentLanguageProvider).valueOrNull ?? 'zh';
+    if (selected == current) return;
+    await ref.read(currentLanguageProvider.notifier).changeLanguage(selected);
+    await _reload();
   }
 
   Widget _pasteBanner() {
@@ -471,22 +516,24 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '保存当前剪贴板',
-                  style: TextStyle(
+                  _tr('保存当前剪贴板', 'Save current clipboard'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '复制文本或图片后，点击右侧即可保存',
-                  style: TextStyle(color: Color(0xDFFFFFFF), fontSize: 12),
+                  _tr('复制文本或图片后，点击右侧即可保存',
+                      'Copy text or an image, then tap to save'),
+                  style:
+                      const TextStyle(color: Color(0xDFFFFFFF), fontSize: 12),
                 ),
               ],
             ),
@@ -506,10 +553,8 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text(
-                    '粘贴保存',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                : Text(_tr('粘贴保存', 'Paste and save'),
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -532,12 +577,14 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                 const SizedBox(height: 18),
                 Text(
                     _search.text.isNotEmpty || _filter != 'all'
-                        ? '没有匹配的记录'
-                        : '还没有剪贴板记录',
+                        ? _tr('没有匹配的记录', 'No matching items')
+                        : _tr('还没有剪贴板记录', 'No clipboard history yet'),
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
-                const Text('在其他应用复制文本或图片后，\n回到这里将自动保存，也可点击“粘贴保存”。',
+                Text(
+                    _tr('在其他应用复制文本或图片后，\n回到这里将自动保存，也可点击“粘贴保存”。',
+                        'Copy text or an image in another app, then return here to save it.'),
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey)),
               ])));
@@ -554,7 +601,9 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                     ? TextButton(
                         onPressed:
                             _loading ? null : () => _reload(append: true),
-                        child: Text(_loading ? '加载中…' : '加载更多'))
+                        child: Text(_loading
+                            ? _tr('加载中…', 'Loading…')
+                            : _tr('加载更多', 'Load more')))
                     : const SizedBox(height: 12);
               return _card(_entries[index]);
             }));
@@ -579,6 +628,21 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                 height: 80, child: Center(child: CircularProgressIndicator())));
   }
 
+  Widget _video(ClipboardEntry entry) {
+    final path = entry.filePath;
+    if (path == null) return const Text('视频文件不可用');
+    return FutureBuilder<String>(
+      future: ref.read(iphoneClipboardServiceProvider).resolvePath(path),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return const Text('视频文件不可用');
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return LocalVideoPlayer(path: snapshot.data!);
+      },
+    );
+  }
+
   Widget _card(ClipboardEntry entry) => Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -601,11 +665,15 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                       Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (entry.type == 'file')
-                              const Padding(
-                                  padding: EdgeInsets.only(right: 10),
-                                  child: Icon(Icons.insert_drive_file_outlined,
-                                      color: _blue, size: 30)),
+                            if (entry.type == 'file' || entry.type == 'video')
+                              Padding(
+                                  padding: const EdgeInsets.only(right: 10),
+                                  child: Icon(
+                                      entry.type == 'video'
+                                          ? Icons.video_file_outlined
+                                          : Icons.insert_drive_file_outlined,
+                                      color: _blue,
+                                      size: 30)),
                             Expanded(
                                 child: Text(
                                     entry.textContent ?? entry.title ?? '文件',
@@ -624,7 +692,9 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                               style: const TextStyle(
                                   color: Color(0xFF9CA3AF), fontSize: 11))),
                       IconButton(
-                          tooltip: entry.favorite == 1 ? '取消收藏' : '收藏',
+                          tooltip: entry.favorite == 1
+                              ? _tr('取消收藏', 'Remove favorite')
+                              : _tr('收藏', 'Favorite'),
                           onPressed: _busy ? null : () => _favorite(entry),
                           icon: Icon(
                               entry.favorite == 1
@@ -635,7 +705,7 @@ class _IphoneClipboardPageState extends ConsumerState<IphoneClipboardPage>
                                   : const Color(0xFF9CA3AF),
                               size: 21)),
                       IconButton(
-                          tooltip: '复制',
+                          tooltip: _tr('复制', 'Copy'),
                           onPressed: _busy ? null : () => _copy(entry),
                           icon: const Icon(Icons.copy_outlined,
                               size: 18, color: _blue)),

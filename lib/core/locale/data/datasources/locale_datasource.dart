@@ -10,7 +10,7 @@ class LocaleDatasource {
 
   static const _keyCurrentLanguage = 'current_language';
   static const _keyCachedTexts = 'cached_texts_';
-  static const _appType = 'Unique_Health';
+  static const _appType = 'PasteLink';
 
   LocaleDatasource(this.prefs);
 

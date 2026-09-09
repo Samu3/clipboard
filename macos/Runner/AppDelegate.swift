@@ -88,7 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
 //            button.image = NSImage(named: "preview_light")   // 已自动按 scale 选择
 //              button.image?.isTemplate = true                // 关键！告诉系统这是 template 图
-//              button.toolTip = "ClipSync"
+//              button.toolTip = "PasteLink"
         }
         // 初始化菜单
         rebuildStatusMenu()

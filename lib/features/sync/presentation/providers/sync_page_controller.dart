@@ -131,10 +131,10 @@ class SyncPageController extends StateNotifier<SyncPageState> {
         await refresh();
       });
 
-  Future<void> chooseAndSend({required bool images}) async {
+  Future<void> chooseAndSend({required bool media}) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
-      type: images ? FileType.image : FileType.any,
+      type: media ? FileType.media : FileType.any,
       withData: Platform.isIOS,
     );
     if (result == null || result.files.isEmpty) return;
@@ -148,13 +148,21 @@ class SyncPageController extends StateNotifier<SyncPageState> {
                 : await File(picked.path!).readAsBytes());
         if (bytes == null) continue;
         final item = await repository.importAsset(
-            name: picked.name, bytes: bytes, image: images);
+            name: picked.name,
+            bytes: bytes,
+            type: media ? _mediaType(picked.name) : 'file');
         importedIds.add(item.id);
       }
       final count = await repository.pushToRemote(state.peer!, importedIds);
-      state = state.copyWith(message: '已发送 $count 个${images ? '图片' : '文件'}');
+      state = state.copyWith(message: '已发送 $count 个${media ? '媒体' : '文件'}');
       await refresh();
     });
+  }
+
+  String _mediaType(String name) {
+    const videoExtensions = {'mp4', 'mov', 'm4v', 'avi', 'mkv', 'webm', '3gp'};
+    final extension = name.split('.').last.toLowerCase();
+    return videoExtensions.contains(extension) ? 'video' : 'image';
   }
 
   Future<void> refresh() async {

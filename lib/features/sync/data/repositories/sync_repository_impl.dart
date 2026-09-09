@@ -88,9 +88,8 @@ class SyncRepositoryImpl implements SyncRepository {
   Future<SyncClipboardItem> importAsset({
     required String name,
     required List<int> bytes,
-    required bool image,
+    required String type,
   }) async {
-    final type = image ? 'image' : 'file';
     final hash = sha256.convert(bytes).toString();
     final root = await getApplicationSupportDirectory();
     final directory = Directory('${root.path}/sync_files');

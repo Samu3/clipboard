@@ -45,5 +45,5 @@ class ApiConfig {
     }
   }
 
-  static const String app_type = "Unique_Health";
+  static const String app_type = "PasteLink";
 }

@@ -26,7 +26,7 @@ class _SaveImageButtonState extends State<SaveImageButton> {
     } on PlatformException catch (error) {
       if (mounted) setState(() => _error = error.message ?? '保存失败，请重试');
     } catch (_) {
-      if (mounted) setState(() => _error = '保存失败，请确认图片文件仍然存在');
+      if (mounted) setState(() => _error = '保存失败，请确认媒体文件仍然存在');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

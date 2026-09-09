@@ -96,13 +96,14 @@ class ClipboardLocalDatasource {
     switch (filter) {
       case 'text':
       case 'image':
+      case 'video':
       case 'file':
         whereList.add('type = ?');
         whereArgs.add(filter);
         break;
       case 'transfer':
         whereList.add("id LIKE 'sync-%'");
-        whereList.add("type IN ('image', 'file')");
+        whereList.add("type IN ('image', 'video', 'file')");
         break;
       case 'favorite':
         whereList.add('favorite = 1');
